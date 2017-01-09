@@ -1,7 +1,7 @@
 #include "ch.h"
 #include "hal.h"
 #include "stm32f4xx_conf.h"
-#include "esc.h"
+#include "motor_driver.h"
 
 #define ESC_UPDATE_RATE		25000
 #define TIM_CLOCK			10000000
@@ -21,7 +21,7 @@ static PWMConfig pwmcfg = {
 		0
 };
 
-void esc_init(void) {
+void motor_driver_init(void) {
 	pwmStart(&PWMD5, &pwmcfg);
 
 	palSetPadMode(GPIOA, 0,
@@ -57,10 +57,10 @@ void esc_init(void) {
 	palSetPad(GPIOC, 8);
 	palSetPad(GPIOC, 9);
 
-	esc_set_all(0);
+	motor_driver_set_all(0);
 }
 
-void esc_set(uint8_t channel, double duty_cycle) {
+void motor_driver_set(uint8_t channel, double duty_cycle) {
 	uint32_t cnt_val;
 	if (duty_cycle < 0)
 		duty_cycle = 0;
@@ -98,6 +98,6 @@ void esc_set(uint8_t channel, double duty_cycle) {
 	}
 }
 
-void esc_set_all(double duty_cycle) {
-	esc_set(ALL_CHANNELS, duty_cycle);
+void motor_driver_set_all(double duty_cycle) {
+	motor_driver_set(ALL_CHANNELS, duty_cycle);
 }
