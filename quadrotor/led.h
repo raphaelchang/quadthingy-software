@@ -1,5 +1,5 @@
-#ifndef WS2812B_H_
-#define WS2812B_H_
+#ifndef LED_H_
+#define LED_H_
 
 #include <stdint.h>
 
@@ -46,10 +46,10 @@
 
 
 // Functions
-void ws2812b_init(void);
-void ws2812b_set_led_color(int led, uint32_t color);
-uint32_t ws2812b_get_led_color(int led);
-void ws2812b_all_off(void);
-void ws2812b_set_all(uint32_t color);
+void led_init(void);
+void led_set_led_color(int led, uint32_t color);
+uint32_t led_get_led_color(int led);
+void led_all_off(void);
+void led_set_all(uint32_t color);
 
 #endif /* WS2812B_H_ */

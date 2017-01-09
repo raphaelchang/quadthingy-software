@@ -1,7 +1,7 @@
 #include "ch.h"
 #include "hal.h"
 #include <math.h>
-#include "ws2812b.h"
+#include "led.h"
 #include "stm32f4xx_conf.h"
 
 // Settings
@@ -22,7 +22,7 @@ static uint8_t gamma_table[256];
 // Private function prototypes
 static uint32_t rgb_to_local(uint32_t color);
 
-void ws2812b_init(void) {
+void led_init(void) {
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 	TIM_OCInitTypeDef  TIM_OCInitStructure;
 	DMA_InitTypeDef DMA_InitStructure;
@@ -118,7 +118,7 @@ void ws2812b_init(void) {
 	TIM_CtrlPWMOutputs(TIM4, ENABLE);
 }
 
-void ws2812b_set_led_color(int led, uint32_t color) {
+void led_set_led_color(int led, uint32_t color) {
 	if (led < WS2812B_LED_NUM) {
 		RGBdata[led] = color;
 
@@ -136,7 +136,7 @@ void ws2812b_set_led_color(int led, uint32_t color) {
 	}
 }
 
-uint32_t ws2812b_get_led_color(int led) {
+uint32_t led_get_led_color(int led) {
 	if (led < WS2812B_LED_NUM) {
 		return RGBdata[led];
 	}
@@ -144,7 +144,7 @@ uint32_t ws2812b_get_led_color(int led) {
 	return 0;
 }
 
-void ws2812b_all_off(void) {
+void led_all_off(void) {
 	int i;
 
 	for (i = 0; i < WS2812B_LED_NUM; i++) {
@@ -156,7 +156,7 @@ void ws2812b_all_off(void) {
 	}
 }
 
-void ws2812b_set_all(uint32_t color) {
+void led_set_all(uint32_t color) {
 	int i, bit;
 
 	for (i = 0; i < WS2812B_LED_NUM; i++) {
