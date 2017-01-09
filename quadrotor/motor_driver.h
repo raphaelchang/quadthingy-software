@@ -1,8 +1,22 @@
 #ifndef MOTOR_DRIVER_H_
 #define MOTOR_DRIVER_H_
+extern "C"
+{
+#include "ch.h"
+#include "hal.h"
+#include "stm32f4xx_conf.h"
+}
 
-void motor_driver_init(void);
-void motor_driver_set(uint8_t id, double duty_cycle);
-void motor_driver_set_all(double duty_cycle);
+class MotorDriver
+{
+public:
+    MotorDriver(PWMDriver *device, uint8_t forward_channel, uint8_t reverse_channel);
+    ~MotorDriver();
+    void Set(double duty_cycle);
+private:
+    PWMDriver *m_driver;
+    uint8_t m_forward_channel;
+    uint8_t m_reverse_channel;
+};
 
-#endif /* ESC_H_ */
+#endif /* MOTOR_DRIVER_H_ */
