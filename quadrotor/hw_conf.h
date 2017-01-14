@@ -14,4 +14,20 @@
 #define MOTOR_DRIVER_4_FWD_CH 1
 #define MOTOR_DRIVER_4_REV_CH 2
 
+#define IMU_I2C_DEV I2CD1
+#define IMU_SCL_GPIO GPIOB
+#define IMU_SCL_PIN 6
+#define IMU_SDA_GPIO GPIOB
+#define IMU_SDA_PIN 7
+
+#define SCK_GPIO GPIOC
+#define SCK_PIN 10
+#define MISO_GPIO GPIOC
+#define MISO_PIN 11
+#define MOSI_GPIO GPIOC
+#define MOSI_PIN 12
+#define CS_GPIO GPIOA
+#define CS_PIN 15
+#define SPI_DEV SPID3
+
 #endif /* _HW_CONF_H_ */

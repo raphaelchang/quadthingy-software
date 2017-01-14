@@ -1,7 +1,14 @@
 #ifndef BNO055_H_
 #define BNO055_H_
 
+extern "C"
+{
 #include <stdint.h>
+#include "ch.h"
+#include "hal.h"
+#include <string.h>
+}
+#include <Eigen/Dense>
 
 #define BNO055_ADDR 0x28
 #define BNO055_ID 0xA0
@@ -176,19 +183,18 @@
 #define VECTOR_LINEARACCEL										BNO055_LINEAR_ACCEL_DATA_X_LSB_ADDR
 #define VECTOR_GRAVITY 											BNO055_GRAVITY_DATA_X_LSB_ADDR
 
-typedef struct {
-	double x;
-	double y;
-	double z;
-} vector3;
-
-bool bno055_init(void);
-bool bno055_init(void);
-uint8_t bno055_read_addr(uint8_t addr);
-void bno055_read_len(uint8_t addr, uint8_t len, uint8_t *buffer);
-void bno055_write_addr(uint8_t addr, uint8_t value);
-vector3 bno055_get_vector(uint8_t addr);
-uint8_t bno055_get_status();
-uint8_t bno055_get_error();
+class BNO055
+{
+public:
+    BNO055();
+    ~BNO055();
+    uint8_t ReadAddress(uint8_t addr);
+    void ReadLength(uint8_t addr, uint8_t len, uint8_t *buffer);
+    void WriteAddress(uint8_t addr, uint8_t value);
+    Eigen::Vector3d GetVector(uint8_t addr);
+    uint8_t GetStatus();
+    uint8_t GetError();
+private:
+};
 
 #endif /* BNO055_H_ */

@@ -3,6 +3,7 @@
 
 #include "bno055.h"
 #include "motor_driver.h"
+#include <Eigen/Dense>
 extern "C"
 {
 #include "ch.h"
@@ -14,15 +15,16 @@ public:
     Controller();
     ~Controller();
     void Update();
-    void SetOrientation(vector3 setpoint);
+    void SetOrientation(Eigen::Vector3d setpoint);
     void SetThrottle(double throttle);
 private:
-    void velocityLoopUpdate(vector3 setpoint);
+    void velocityLoopUpdate(Eigen::Vector3d setpoint);
     double m_throttle;
-    MotorDriver *md1;
-    MotorDriver *md2;
-    MotorDriver *md3;
-    MotorDriver *md4;
+    BNO055 *m_imu;
+    MotorDriver *m_md1;
+    MotorDriver *m_md2;
+    MotorDriver *m_md3;
+    MotorDriver *m_md4;
 };
 
 #endif /* CONTROLLER_H_ */
