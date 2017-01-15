@@ -1,188 +1,234 @@
-#include "ch.h"
-#include "hal.h"
-#include <math.h>
 #include "led.h"
-#include "stm32f4xx_conf.h"
 
-// Settings
-#define WS2812B_CLK_HZ 800000
-#define WS2812B_LED_NUM 4
-#define TIM_PERIOD			(((168000000 / 2 / WS2812B_CLK_HZ) - 1))
-#define LED_BUFFER_LEN		(WS2812B_LED_NUM + 1)
-#define BITBUFFER_PAD		50
-#define BITBUFFER_LEN		(24 * LED_BUFFER_LEN + BITBUFFER_PAD)
-#define WS2812B_ZERO		(TIM_PERIOD * 0.32)
-#define WS2812B_ONE			(TIM_PERIOD * 0.64)
+LED::LED() {
+    TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+    TIM_OCInitTypeDef  TIM_OCInitStructure;
+    DMA_InitTypeDef DMA_InitStructure;
 
-// Private variables
-static uint16_t bitbuffer[BITBUFFER_LEN];
-static uint32_t RGBdata[LED_BUFFER_LEN];
-static uint8_t gamma_table[256];
+    // Default LED values
+    int i, bit;
 
-// Private function prototypes
-static uint32_t rgb_to_local(uint32_t color);
+    for (i = 0; i < LED_BUFFER_LEN; i++) {
+        m_rgb_data[i] = 0;
+    }
+    for (i = 0; i < BITBUFFER_LEN; i++)
+    {
+        m_bitbuffer[i] = 0;
+    }
 
-void led_init(void) {
-	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
-	TIM_OCInitTypeDef  TIM_OCInitStructure;
-	DMA_InitTypeDef DMA_InitStructure;
+    for (i = 0; i < LED_BUFFER_LEN; i++) {
+        uint32_t writeCmd = 0x3AA;
+        for (bit = 0; bit < 12; bit++)
+        {
+            if (writeCmd & (1 << (12 - bit - 1)))
+            {
+                SET_ONE_AT_INDEX(m_bitbuffer, bit * 3 + i * BITBUFFER_LED_LEN);
+            }
+            else
+            {
+                SET_ZERO_AT_INDEX(m_bitbuffer, bit * 3 + i * BITBUFFER_LED_LEN);
+            }
+        }
+        uint32_t tmp_color = rgbToLocal(m_rgb_data[i]);
+        uint8_t r = (tmp_color >> 16) & 0xFF;
+        uint8_t g = (tmp_color >> 8) & 0xFF;
+        uint8_t b = tmp_color & 0xFF;
 
-	// Default LED values
-	int i, bit;
+        for (bit = 0; bit < 8; bit++) {
+            if (g & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 12 + bit * 3 + i * BITBUFFER_LED_LEN);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 12 + bit * 3 + i * BITBUFFER_LED_LEN);
+            }
+        }
+        for (bit = 0; bit < 8; bit++) {
+            if (r & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN]);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN);
+            }
+        }
+        for (bit = 0; bit < 8; bit++) {
+            if (b & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 84 + bit * 3 + i * BITBUFFER_LED_LEN);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 84 + bit * 3 + i * BITBUFFER_LED_LEN);
+            }
+        }
+    }
 
-	for (i = 0; i < LED_BUFFER_LEN; i++) {
-		RGBdata[i] = 0;
-	}
+    // Generate gamma correction table
+    for (i = 0; i < 256; i++) {
+        m_gamma_table[i] = (int)roundf(powf((float)i / 255.0, 1.0 / 0.45) * 255.0);
+    }
 
-	for (i = 0; i < LED_BUFFER_LEN; i++) {
-		uint32_t tmp_color = rgb_to_local(RGBdata[i]);
+    palSetPadMode(GPIOB, 8,
+            PAL_MODE_ALTERNATE(GPIO_AF_TIM4) |
+            PAL_STM32_OTYPE_PUSHPULL |
+            PAL_STM32_OSPEED_MID1);
 
-		for (bit = 0;bit < 24;bit++) {
-			if(tmp_color & (1 << 23)) {
-				bitbuffer[bit + i * 24] = WS2812B_ONE;
-			} else {
-				bitbuffer[bit + i * 24] = WS2812B_ZERO;
-			}
-			tmp_color <<= 1;
-		}
-	}
+    // DMA clock enable
+    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1, ENABLE);
 
-	// Fill the rest of the buffer with zeros to give the LEDs a chance to update
-	// after sending all bits
-	for (i = 0; i < BITBUFFER_PAD; i++) {
-		bitbuffer[BITBUFFER_LEN - BITBUFFER_PAD - 1 + i] = 0;
-	}
+    DMA_DeInit(DMA1_Stream7);
+    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&TIM4->CCR3;
 
-	// Generate gamma correction table
-	for (i = 0; i < 256; i++) {
-		gamma_table[i] = (int)roundf(powf((float)i / 255.0, 1.0 / 0.45) * 255.0);
-	}
+    DMA_InitStructure.DMA_Channel = DMA_Channel_2;
+    DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)m_bitbuffer;
+    DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
+    DMA_InitStructure.DMA_BufferSize = BITBUFFER_LEN;
+    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+    DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
+    DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+    DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
+    DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
+    DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+    DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
 
-	palSetPadMode(GPIOB, 8,
-			PAL_MODE_ALTERNATE(GPIO_AF_TIM4) |
-			PAL_STM32_OTYPE_PUSHPULL |
-			PAL_STM32_OSPEED_MID1);
+    DMA_Init(DMA1_Stream7, &DMA_InitStructure);
 
-	// DMA clock enable
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
 
-	DMA_DeInit(DMA1_Stream7);
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&TIM4->CCR3;
+    // Time Base configuration
+    TIM_TimeBaseStructure.TIM_Prescaler = 0;
+    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    TIM_TimeBaseStructure.TIM_Period = TIM_PERIOD;
+    TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+    TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
 
-	DMA_InitStructure.DMA_Channel = DMA_Channel_2;
-	DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)bitbuffer;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-	DMA_InitStructure.DMA_BufferSize = BITBUFFER_LEN;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
-	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
+    TIM_TimeBaseInit(TIM4, &TIM_TimeBaseStructure);
 
-	DMA_Init(DMA1_Stream7, &DMA_InitStructure);
+    // Channel 3 Configuration in PWM mode
+    TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
+    TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+    TIM_OCInitStructure.TIM_Pulse = m_bitbuffer[0];
+    TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+    TIM_OC3Init(TIM4, &TIM_OCInitStructure);
+    TIM_OC3PreloadConfig(TIM4, TIM_OCPreload_Enable);
 
-	// Time Base configuration
-	TIM_TimeBaseStructure.TIM_Prescaler = 0;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-	TIM_TimeBaseStructure.TIM_Period = TIM_PERIOD;
-	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
+    // TIM4 counter enable
+    TIM_Cmd(TIM4, ENABLE);
 
-	TIM_TimeBaseInit(TIM4, &TIM_TimeBaseStructure);
+    DMA_Cmd(DMA1_Stream7, ENABLE);
 
-	// Channel 3 Configuration in PWM mode
-	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
-	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCInitStructure.TIM_Pulse = bitbuffer[0];
-	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
+    // TIM4 Update DMA Request enable
+    TIM_DMACmd(TIM4, TIM_DMA_CC3, ENABLE);
 
-	TIM_OC3Init(TIM4, &TIM_OCInitStructure);
-	TIM_OC3PreloadConfig(TIM4, TIM_OCPreload_Enable);
-
-	// TIM4 counter enable
-	TIM_Cmd(TIM4, ENABLE);
-
-	DMA_Cmd(DMA1_Stream7, ENABLE);
-
-	// TIM4 Update DMA Request enable
-	TIM_DMACmd(TIM4, TIM_DMA_CC3, ENABLE);
-
-	// Main Output Enable
-	TIM_CtrlPWMOutputs(TIM4, ENABLE);
+    // Main Output Enable
+    TIM_CtrlPWMOutputs(TIM4, ENABLE);
 }
 
-void led_set_led_color(int led, uint32_t color) {
-	if (led < WS2812B_LED_NUM) {
-		RGBdata[led] = color;
+void LED::SetColor(int led, uint32_t color) {
+    if (led < TLC5973_LED_NUM) {
+        m_rgb_data[led] = color;
 
-		color = rgb_to_local(color);
+        color = rgbToLocal(color);
 
-		int bit;
-		for (bit = 0;bit < 24;bit++) {
-			if(color & (1 << 23)) {
-				bitbuffer[bit + led * 24] = WS2812B_ONE;
-			} else {
-				bitbuffer[bit + led * 24] = WS2812B_ZERO;
-			}
-			color <<= 1;
-		}
-	}
+        int bit;
+        uint8_t r = (color >> 16) & 0xFF;
+        uint8_t g = (color >> 8) & 0xFF;
+        uint8_t b = color & 0xFF;
+
+        for (bit = 0; bit < 8; bit++) {
+            if (g & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 12 + bit * 3 + led * BITBUFFER_LED_LEN);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 12 + bit * 3 + led * BITBUFFER_LED_LEN);
+            }
+        }
+        for (bit = 0; bit < 8; bit++) {
+            if (r & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + led * BITBUFFER_LED_LEN]);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + led * BITBUFFER_LED_LEN);
+            }
+        }
+        for (bit = 0; bit < 8; bit++) {
+            if (b & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 84 + bit * 3 + led * BITBUFFER_LED_LEN);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 84 + bit * 3 + led * BITBUFFER_LED_LEN);
+            }
+        }
+    }
 }
 
-uint32_t led_get_led_color(int led) {
-	if (led < WS2812B_LED_NUM) {
-		return RGBdata[led];
-	}
+uint32_t LED::GetColor(int led) {
+    if (led < TLC5973_LED_NUM) {
+        return m_rgb_data[led];
+    }
 
-	return 0;
+    return 0;
 }
 
-void led_all_off(void) {
-	int i;
+void LED::SetAllOff() {
+    int i;
 
-	for (i = 0; i < WS2812B_LED_NUM; i++) {
-		RGBdata[i] = 0;
-	}
+    for (i = 0; i < TLC5973_LED_NUM; i++) {
+        m_rgb_data[i] = 0;
+    }
 
-	for (i = 0; i < (WS2812B_LED_NUM * 24); i++) {
-		bitbuffer[i] = WS2812B_ZERO;
-	}
+    for (i = 0; i < LED_BUFFER_LEN; i++) {
+        for (bit = 0; bit < 8; bit++) {
+            SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 12 + bit * 3 + i * BITBUFFER_LED_LEN);
+        }
+        for (bit = 0; bit < 8; bit++) {
+            SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN);
+        }
+        for (bit = 0; bit < 8; bit++) {
+            SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 84 + bit * 3 + i * BITBUFFER_LED_LEN);
+        }
+    }
 }
 
-void led_set_all(uint32_t color) {
-	int i, bit;
+void LED::SetAll(uint32_t color) {
+    int i, bit;
 
-	for (i = 0; i < WS2812B_LED_NUM; i++) {
-		RGBdata[i] = color;
+    for (i = 0; i < TLC5973_LED_NUM; i++) {
+        m_rgb_data[i] = color;
+    }
+    for (i = 0; i < LED_BUFFER_LEN; i++) {
+        uint32_t tmp_color = rgbToLocal(m_rgb_data[i]);
+        uint8_t r = (tmp_color >> 16) & 0xFF;
+        uint8_t g = (tmp_color >> 8) & 0xFF;
+        uint8_t b = tmp_color & 0xFF;
 
-		uint32_t tmp_color = rgb_to_local(color);
-
-		for (bit = 0; bit < 24; bit++) {
-			if(tmp_color & (1 << 23)) {
-				bitbuffer[bit + i * 24] = WS2812B_ONE;
-			} else {
-				bitbuffer[bit + i * 24] = WS2812B_ZERO;
-			}
-			tmp_color <<= 1;
-		}
-	}
+        for (bit = 0; bit < 8; bit++) {
+            if (g & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 12 + bit * 3 + i * BITBUFFER_LED_LEN);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 12 + bit * 3 + i * BITBUFFER_LED_LEN);
+            }
+        }
+        for (bit = 0; bit < 8; bit++) {
+            if (r & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN]);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN);
+            }
+        }
+        for (bit = 0; bit < 8; bit++) {
+            if (b & (1 << (8 - bit - 1))) {
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 84 + bit * 3 + i * BITBUFFER_LED_LEN);
+            } else {
+                SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 84 + bit * 3 + i * BITBUFFER_LED_LEN);
+            }
+        }
+    }
 }
 
-static uint32_t rgb_to_local(uint32_t color) {
-	uint32_t r = (color >> 16) & 0xFF;
-	uint32_t g = (color >> 8) & 0xFF;
-	uint32_t b = color & 0xFF;
+uint32_t LED::rgbToLocal(uint32_t color) {
+    uint32_t r = (color >> 16) & 0xFF;
+    uint32_t g = (color >> 8) & 0xFF;
+    uint32_t b = color & 0xFF;
 
-	r = gamma_table[r];
-	g = gamma_table[g];
-	b = gamma_table[b];
+    r = m_gamma_table[r];
+    g = m_gamma_table[g];
+    b = m_gamma_table[b];
 
-	return (g << 16) | (r << 8) | b;
+    return (g << 16) | (r << 8) | b;
 }

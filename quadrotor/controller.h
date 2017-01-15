@@ -25,6 +25,15 @@ private:
     MotorDriver *m_md2;
     MotorDriver *m_md3;
     MotorDriver *m_md4;
+    Eigen::Vector3d m_orientation;
+    Eigen::Vector3d m_rotation;
+    Eigen::Vector3d m_vel_p_gains;
+    Eigen::Vector3d m_vel_i_gains;
+    Eigen::Vector3d m_vel_d_gains;
+    Eigen::Vector3d m_vel_ff_gains;
+    Eigen::Vector3d m_pos_p_gains;
+    Eigen::Vector3d m_pos_i_gains;
+    Eigen::Vector3d m_pos_d_gains;
 };
 
 #endif /* CONTROLLER_H_ */

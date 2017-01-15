@@ -14,32 +14,32 @@ BNO055::BNO055()
     i2cStart(&IMU_I2C_DEV, &i2ccfg);
     palSetPadMode(IMU_SCL_GPIO, IMU_SCL_PIN, PAL_MODE_ALTERNATE(4) | PAL_STM32_OTYPE_OPENDRAIN);
     palSetPadMode(IMU_SDA_GPIO, IMU_SDA_PIN, PAL_MODE_ALTERNATE(4) | PAL_STM32_OTYPE_OPENDRAIN);
-    uint8_t id = bno055_read_addr(BNO055_CHIP_ID_ADDR);
+    uint8_t id = ReadAddress(BNO055_CHIP_ID_ADDR);
     if(id != BNO055_ID)
     {
         chThdSleepMilliseconds(1000);
-        id = bno055_read_addr(BNO055_CHIP_ID_ADDR);
+        id = ReadAddress(BNO055_CHIP_ID_ADDR);
         if(id != BNO055_ID) {
             return false;
         }
     }
-    bno055_write_addr(BNO055_OPR_MODE_ADDR, OPERATION_MODE_CONFIG);
+    WriteAddress(BNO055_OPR_MODE_ADDR, OPERATION_MODE_CONFIG);
     chThdSleepMilliseconds(30);
-    bno055_write_addr(BNO055_SYS_TRIGGER_ADDR, 0x20);
-    while (bno055_read_addr(BNO055_CHIP_ID_ADDR) != BNO055_ID)
+    WriteAddress(BNO055_SYS_TRIGGER_ADDR, 0x20);
+    while (ReadAddress(BNO055_CHIP_ID_ADDR) != BNO055_ID)
     {
         chThdSleepMilliseconds(10);
     }
     chThdSleepMilliseconds(50);
 
     /* Set to normal power mode */
-    bno055_write_addr(BNO055_PWR_MODE_ADDR, POWER_MODE_NORMAL);
+    WriteAddress(BNO055_PWR_MODE_ADDR, POWER_MODE_NORMAL);
     chThdSleepMilliseconds(10);
 
-    bno055_write_addr(BNO055_PAGE_ID_ADDR, 0);
-    bno055_write_addr(BNO055_SYS_TRIGGER_ADDR, 0x80);
+    WriteAddress(BNO055_PAGE_ID_ADDR, 0);
+    WriteAddress(BNO055_SYS_TRIGGER_ADDR, 0x80);
     chThdSleepMilliseconds(10);
-    bno055_write_addr(BNO055_OPR_MODE_ADDR, OPERATION_MODE_NDOF);
+    WriteAddress(BNO055_OPR_MODE_ADDR, OPERATION_MODE_NDOF);
     chThdSleepMilliseconds(50);
     return true;
 }
@@ -53,7 +53,7 @@ Vector3d BNO055:GetVector(uint8_t addr)
     double vx, vy, vz;
     uint8_t buffer[6];
     memset (buffer, 0, 6);
-    bno055_read_len(addr, 6, buffer);
+    ReadAddressLength(addr, 6, buffer);
     int16_t x = ((int16_t)buffer[0]) | (((int16_t)buffer[1]) << 8);
     int16_t y = ((int16_t)buffer[2]) | (((int16_t)buffer[3]) << 8);
     int16_t z = ((int16_t)buffer[4]) | (((int16_t)buffer[5]) << 8);
@@ -92,12 +92,12 @@ Vector3d BNO055:GetVector(uint8_t addr)
 
 uint8_t BNO055:GetStatus()
 {
-    return bno055_read_addr(BNO055_SYS_STAT_ADDR);
+    return ReadAddress(BNO055_SYS_STAT_ADDR);
 }
 
 uint8_t BNO055::GetError()
 {
-    return bno055_read_addr(BNO055_SYS_ERR_ADDR);
+    return ReadAddress(BNO055_SYS_ERR_ADDR);
 }
 
 uint8_t BNO055::ReadAddress(uint8_t addr)
@@ -112,7 +112,7 @@ uint8_t BNO055::ReadAddress(uint8_t addr)
     return rxbuf[0];
 }
 
-void BNO055:ReadLength(uint8_t addr, uint8_t len, uint8_t *buffer)
+void BNO055:ReadAddressLength(uint8_t addr, uint8_t len, uint8_t *buffer)
 {
     systime_t tmo = MS2ST(4);
     uint8_t txbuf[1];

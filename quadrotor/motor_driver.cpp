@@ -27,6 +27,10 @@ MotorDriver(PWMDriver *device, uint8_t forward_channel, uint8_t reverse_channel)
     pwmEnableChannel(m_device, m_reverse_channel, 0);
 }
 
+MotorDriver::~MotorDriver()
+{
+}
+
 void MotorDriver::Set(double duty_cycle)
 {
     uint32_t cnt_val;

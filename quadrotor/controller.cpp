@@ -4,39 +4,17 @@
 
 using namespace Eigen;
 
-Vector3d orientation;
-Vector3d rotation;
-Vector3d vel_p_gains;
-Vector3d vel_i_gains;
-Vector3d vel_d_gains;
-Vector3d vel_ff_gains;
-Vector3d pos_p_gains;
-Vector3d pos_i_gains;
-Vector3d pos_d_gains;
-
 Controller::Controller()
+    : m_vel_p_gains(0.005, 0.005, -0.005),
+    m_vel_i_gains(0, 0, 0),
+    m_vel_d_gains(0, 0, 0),
+    m_vel_ff_gains(0.05, 0.05, 0.01),
+    m_pos_p_gains(-0.02, -0.02, 0.01),
+    m_pos_i_gains(0, 0, 0),
+    m_pos_d_gains(0, 0, 0),
+    m_orientation(0, 0, 0),
+    m_rotation(0, 0, 0)
 {
-    vel_p_gains(0) = 0.005;
-    vel_p_gains(1) = 0.005;
-    vel_p_gains(2) = -0.005;
-    vel_i_gains(0) = 0;
-    vel_i_gains(1) = 0;
-    vel_i_gains(2) = 0;
-    vel_d_gains(0) = 0;
-    vel_d_gains(1) = 0;
-    vel_d_gains(2) = 0;
-    vel_ff_gains(0) = 0.05;
-    vel_ff_gains(1) = 0.05;
-    vel_ff_gains(2) = 0.01;
-    pos_p_gains(0) = -0.02;
-    pos_p_gains(1) = -0.02;
-    pos_p_gains(2) = 0.01;
-    pos_i_gains(0) = 0;
-    pos_i_gains(1) = 0;
-    pos_i_gains(2) = 0;
-    pos_d_gains(0) = 0;
-    pos_d_gains(1) = 0;
-    pos_d_gains(2) = 0;
     m_throttle = 0;
     m_imu = new BNO055();
     m_md1 = new MotorDriver(&MOTOR_DRIVER_1_PWM_DEV, MOTOR_DRIVER_1_FWD_CH, MOTOR_DRIVER_1_REV_CH);
@@ -51,8 +29,8 @@ Controller::~Controller()
 
 void Controller::Update()
 {
-    orientation = m_imu->GetVector(VECTOR_EULER);
-    rotation = m_imu->GetVector(VECTOR_GYROSCOPE);
+    m_orientation = m_imu->GetVector(VECTOR_EULER);
+    m_rotation = m_imu->GetVector(VECTOR_GYROSCOPE);
     Vector3d setpoint;
     setpoint(0) = 0.0;
     setpoint(1) = 0.0;

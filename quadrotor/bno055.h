@@ -189,7 +189,7 @@ public:
     BNO055();
     ~BNO055();
     uint8_t ReadAddress(uint8_t addr);
-    void ReadLength(uint8_t addr, uint8_t len, uint8_t *buffer);
+    void ReadAddressLength(uint8_t addr, uint8_t len, uint8_t *buffer);
     void WriteAddress(uint8_t addr, uint8_t value);
     Eigen::Vector3d GetVector(uint8_t addr);
     uint8_t GetStatus();

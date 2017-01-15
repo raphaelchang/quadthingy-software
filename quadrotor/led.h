@@ -1,7 +1,14 @@
 #ifndef LED_H_
 #define LED_H_
 
+extern "C"
+{
 #include <stdint.h>
+#include "ch.h"
+#include "hal.h"
+#include <math.h>
+#include "stm32f4xx_conf.h"
+}
 
 // Hex color definitions
 #define COLOR_BLACK          0x000000
@@ -44,12 +51,37 @@
 #define COLOR_SNOW           0xFFFAFA
 #define COLOR_YELLOW         0xFFFF00
 
+#define TLC5973_CLK_HZ 1200000
+#define TLC5973_LED_NUM 4
+#define TIM_PERIOD			(((168000000 / 2 / TLC5973_CLK_HZ) - 1))
+#define LED_BUFFER_LEN		(TLC5973_LED_NUM)
+#define BITBUFFER_LED_LEN       156
+#define BITBUFFER_PAD		24
+#define BITBUFFER_CMD_LEN       36
+#define BITBUFFER_LEN		(BITBUFFER_LED_LEN * TLC5973_LED_NUM + BITBUFFER_PAD)
+#define DUTY_CYCLE		(TIM_PERIOD * 0.1)
+#define SET_ONE_AT_INDEX(buffer, index) \
+    buffer[index] = DUTY_CYCLE; \
+    buffer[index + 1] = DUTY_CYCLE; \
+    buffer[index + 2] = 0;
+#define SET_ZERO_AT_INDEX(buffer, index) \
+    buffer[index] = DUTY_CYCLE; \
+    buffer[index + 1] = 0; \
+    buffer[index + 2] = 0;
 
-// Functions
-void led_init(void);
-void led_set_led_color(int led, uint32_t color);
-uint32_t led_get_led_color(int led);
-void led_all_off(void);
-void led_set_all(uint32_t color);
+class LED
+{
+public:
+    LED();
+    void SetColor(int led, uint32_t color);
+    uint32_t GetColor(int led);
+    void SetAllOff();
+    void SetAll(uint32_t color);
+private:
+    uint32_t rgbToLocal(uint32_t color);
+    uint16_t m_bitbuffer[BITBUFFER_LEN];
+    uint32_t m_rgb_data[LED_BUFFER_LEN];
+    uint8_t m_gamma_table[256];
+};
 
-#endif /* WS2812B_H_ */
+#endif /* LED_H_ */
