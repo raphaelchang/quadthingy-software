@@ -678,8 +678,10 @@ public:
 
 private:
     void writeRegister(uint32_t  reg_addr, uint32_t  reg_len, uint8_t * p_data);
-    void readRegister(uint32_t reg_addr, uint32_t reg_len, uint8_t * p_data);
     void writeSubregister(uint32_t reg_addr, uint32_t subreg_addr, uint32_t subreg_len, uint8_t *p_data);
+    void readRegister(uint32_t reg_addr, uint32_t reg_len, uint8_t * p_data);
+    uint32_t readRegister32(uint32_t regAddr, uint32_t regLen);
+    uint64_t readRegister64(uint32_t regAddr, uint32_t regLen);
     void trxOff();
     /** 
      *      * \brief The current state of the dw1000.
@@ -706,7 +708,9 @@ private:
      *      * \brief Holds the most recently received data.
      *           */
     uint8_t  m_p_receive_buffer[DW_RX_BUFFER_MAX_LEN];
-}
+
+    static const SPIConfig spicfg;
+};
 
 
 #endif /* _DW1000_H_ */

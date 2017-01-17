@@ -31,15 +31,12 @@ void Controller::Update()
 {
     m_orientation = m_imu->GetVector(VECTOR_EULER);
     m_rotation = m_imu->GetVector(VECTOR_GYROSCOPE);
-    Vector3d setpoint;
-    setpoint(0) = 0.0;
-    setpoint(1) = 0.0;
-    setpoint(2) = 0.0;
-    double errX = setpoint(0) - orientation(0); // pitch error
-    double errY = setpoint(1) - orientation(1); // roll error
-    double errZ = setpoint(2) - orientation(2); // yaw error
-    setpoint(0) = errX * pos_p_gains(0);
-    setpoint(1) = errY * pos_p_gains(1);
+    Vector3d setpoint(0, 0, 0);
+    double errX = setpoint(0) - m_orientation(0); // pitch error
+    double errY = setpoint(1) - m_orientation(1); // roll error
+    double errZ = setpoint(2) - m_orientation(2); // yaw error
+    setpoint(0) = errX * m_pos_p_gains(0);
+    setpoint(1) = errY * m_pos_p_gains(1);
     setpoint(2) = 0.0;//errZ * pos_p_gains(2);
     velocityLoopUpdate(setpoint);
 }
@@ -51,14 +48,14 @@ void Controller::SetThrottle(double throttle)
 
 void Controller::velocityLoopUpdate(Vector3d setpoint)
 {
-    double errX = setpoint(0) - rotation(0); // pitch error
-    double errY = setpoint(1) - rotation(1); // roll error
-    double errZ = setpoint(2) - rotation(2); // yaw error
-    double pitchOut = errX * vel_p_gains(0) + setpoint(0) * vel_ff_gains(0);
-    double rollOut = errY * vel_p_gains(1) + setpoint(1) * vel_ff_gains(1);
-    double yawOut = errZ * vel_p_gains(2) + setpoint(2) * vel_ff_gains(2);
-    m_md1->Set( m_throttle + pitchOut - yawOut);
-    m_md2->Set(m_throttle - rollOut + ywOut);
+    double errX = setpoint(0) - m_rotation(0); // pitch error
+    double errY = setpoint(1) - m_rotation(1); // roll error
+    double errZ = setpoint(2) - m_rotation(2); // yaw error
+    double pitchOut = errX * m_vel_p_gains(0) + setpoint(0) * m_vel_ff_gains(0);
+    double rollOut = errY * m_vel_p_gains(1) + setpoint(1) * m_vel_ff_gains(1);
+    double yawOut = errZ * m_vel_p_gains(2) + setpoint(2) * m_vel_ff_gains(2);
+    m_md1->Set(m_throttle + pitchOut - yawOut);
+    m_md2->Set(m_throttle - rollOut + yawOut);
     m_md3->Set(m_throttle - pitchOut - yawOut);
     m_md4->Set(m_throttle + rollOut + yawOut);
 }

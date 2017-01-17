@@ -3,7 +3,7 @@
 
 using namespace Eigen;
 
-static const I2CConfig i2ccfg = {
+const I2CConfig BNO055::i2ccfg = {
     OPMODE_I2C,
     100000,
     STD_DUTY_CYCLE,
@@ -20,7 +20,6 @@ BNO055::BNO055()
         chThdSleepMilliseconds(1000);
         id = ReadAddress(BNO055_CHIP_ID_ADDR);
         if(id != BNO055_ID) {
-            return false;
         }
     }
     WriteAddress(BNO055_OPR_MODE_ADDR, OPERATION_MODE_CONFIG);
@@ -41,14 +40,13 @@ BNO055::BNO055()
     chThdSleepMilliseconds(10);
     WriteAddress(BNO055_OPR_MODE_ADDR, OPERATION_MODE_NDOF);
     chThdSleepMilliseconds(50);
-    return true;
 }
 
 BNO055::~BNO055()
 {
 }
 
-Vector3d BNO055:GetVector(uint8_t addr)
+Vector3d BNO055::GetVector(uint8_t addr)
 {
     double vx, vy, vz;
     uint8_t buffer[6];
@@ -90,7 +88,7 @@ Vector3d BNO055:GetVector(uint8_t addr)
     return Vector3d(vx, vy, vz);
 }
 
-uint8_t BNO055:GetStatus()
+uint8_t BNO055::GetStatus()
 {
     return ReadAddress(BNO055_SYS_STAT_ADDR);
 }
@@ -112,7 +110,7 @@ uint8_t BNO055::ReadAddress(uint8_t addr)
     return rxbuf[0];
 }
 
-void BNO055:ReadAddressLength(uint8_t addr, uint8_t len, uint8_t *buffer)
+void BNO055::ReadAddressLength(uint8_t addr, uint8_t len, uint8_t *buffer)
 {
     systime_t tmo = MS2ST(4);
     uint8_t txbuf[1];

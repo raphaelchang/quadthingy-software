@@ -195,6 +195,7 @@ public:
     uint8_t GetStatus();
     uint8_t GetError();
 private:
+    static const I2CConfig i2ccfg;
 };
 
 #endif /* BNO055_H_ */

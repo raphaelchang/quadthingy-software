@@ -1,6 +1,5 @@
 #include "ch.h"
 #include "hal.h"
-#include "packet.h"
 #include "comm_usb.h"
 #include "hw_conf.h"
 
@@ -375,7 +374,7 @@ static THD_FUNCTION(serial_process_thread, arg) {
         chEvtWaitAny((eventmask_t) 1);
 
         while (serial_rx_read_pos != serial_rx_write_pos) {
-            packet_process_byte(serial_rx_buffer[serial_rx_read_pos++]);
+            //packet_process_byte(serial_rx_buffer[serial_rx_read_pos++]);
 
             if (serial_rx_read_pos == SERIAL_RX_BUFFER_SIZE) {
                 serial_rx_read_pos = 0;

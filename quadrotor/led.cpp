@@ -43,7 +43,7 @@ LED::LED() {
         }
         for (bit = 0; bit < 8; bit++) {
             if (r & (1 << (8 - bit - 1))) {
-                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN]);
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN);
             }
@@ -142,7 +142,7 @@ void LED::SetColor(int led, uint32_t color) {
         }
         for (bit = 0; bit < 8; bit++) {
             if (r & (1 << (8 - bit - 1))) {
-                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + led * BITBUFFER_LED_LEN]);
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + led * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + led * BITBUFFER_LED_LEN);
             }
@@ -166,7 +166,7 @@ uint32_t LED::GetColor(int led) {
 }
 
 void LED::SetAllOff() {
-    int i;
+    int i, bit;
 
     for (i = 0; i < TLC5973_LED_NUM; i++) {
         m_rgb_data[i] = 0;
@@ -206,7 +206,7 @@ void LED::SetAll(uint32_t color) {
         }
         for (bit = 0; bit < 8; bit++) {
             if (r & (1 << (8 - bit - 1))) {
-                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN]);
+                SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 48 + bit * 3 + i * BITBUFFER_LED_LEN);
             }

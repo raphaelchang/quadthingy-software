@@ -3,7 +3,7 @@
 
 #define DW_MS_TO_DEVICE_TIME_SCALE 62.6566416e6f
 
-static const SPIConfig spicfg =
+const SPIConfig DW1000::spicfg =
 {
     NULL,
     CS_GPIO,
@@ -28,12 +28,12 @@ DW1000::DW1000()
     trxOff();
     ClearPendingInterrupt(0x00000007FFFFFFFFULL);
     const uint32_t mask = DW_MTXFRS_MASK
-	| DW_MRXDFR_MASK
-	| DW_MRXPHE_MASK
-	| DW_MRXRFTO_MASK
-	| DW_MRXPTO_MASK
-	| DW_MRXSFDTO_MASK
-	| DW_MRXRFSL_MASK;
+        | DW_MRXDFR_MASK
+        | DW_MRXPHE_MASK
+        | DW_MRXRFTO_MASK
+        | DW_MRXPTO_MASK
+        | DW_MRXSFDTO_MASK
+        | DW_MRXRFSL_MASK;
     EnableInterrupt(mask);
 
     const uint32_t lde1  = 0x0301;
@@ -60,11 +60,11 @@ DW1000::~DW1000()
 {
 }
 
-void Configure(dw1000_base_conf_t *dw_conf)
+void DW1000::Configure(dw1000_base_conf_t *dw_conf)
 {
-    uint32_t sys_cfg_val   = dw_read_reg_32(DW_REG_SYS_CFG, DW_LEN_SYS_CFG);
-    uint32_t tx_fctrl_val  = dw_read_reg_32(DW_REG_TX_FCTRL, 4);
-    uint32_t chan_ctrl_val = dw_read_reg_32(DW_REG_CHAN_CTRL, DW_LEN_CHAN_CTRL);
+    uint32_t sys_cfg_val   = readRegister32(DW_REG_SYS_CFG, DW_LEN_SYS_CFG);
+    uint32_t tx_fctrl_val  = readRegister32(DW_REG_TX_FCTRL, 4);
+    uint32_t chan_ctrl_val = readRegister32(DW_REG_CHAN_CTRL, DW_LEN_CHAN_CTRL);
     uint32_t agc_tune1_val;
     const uint32_t agc_tune2_val = 0x2502A907;    /* Always use this */;
     const uint32_t agc_tune3_val = 0x0055;        /* Always use this */;
@@ -84,19 +84,19 @@ void Configure(dw1000_base_conf_t *dw_conf)
     chan_ctrl_val &= ~DW_RXPRF_MASK;
     switch (dw_conf->prf)
     {
-	case DW_PRF_16_MHZ:
-	    agc_tune1_val  = 0x8870;
-	    drx_tune1a_val = 0x0087;
-	    tx_fctrl_val  |= (0x01 << DW_TXPRF) & DW_TXPRF_MASK;
-	    chan_ctrl_val |= (0x01 << DW_RXPRF) & DW_RXPRF_MASK;
-	    break;
+        case DW_PRF_16_MHZ:
+            agc_tune1_val  = 0x8870;
+            drx_tune1a_val = 0x0087;
+            tx_fctrl_val  |= (0x01 << DW_TXPRF) & DW_TXPRF_MASK;
+            chan_ctrl_val |= (0x01 << DW_RXPRF) & DW_RXPRF_MASK;
+            break;
 
-	case DW_PRF_64_MHZ:
-	    agc_tune1_val  = 0x889B;
-	    drx_tune1a_val = 0x008D;
-	    tx_fctrl_val  |= (0x02 << DW_TXPRF) & DW_TXPRF_MASK;
-	    chan_ctrl_val |= (0x02 << DW_RXPRF) & DW_RXPRF_MASK;
-	    break;
+        case DW_PRF_64_MHZ:
+            agc_tune1_val  = 0x889B;
+            drx_tune1a_val = 0x008D;
+            tx_fctrl_val  |= (0x02 << DW_TXPRF) & DW_TXPRF_MASK;
+            chan_ctrl_val |= (0x02 << DW_RXPRF) & DW_RXPRF_MASK;
+            break;
     }
 
     // === Configure rx/tx channel
@@ -109,48 +109,48 @@ void Configure(dw1000_base_conf_t *dw_conf)
 
     switch (dw_conf->channel)
     {
-	case DW_CHANNEL_1:
-	    rf_rxctrl_val  = 0xD8;
-	    rf_txctrl_val  = 0x00005C40;
-	    tc_pgdelay_val = 0xC9;
-	    fs_pllcfg_val  = 0x09000407;
-	    fs_plltune_val = 0x1E;
-	    break;
-	case DW_CHANNEL_2:
-	    rf_rxctrl_val  = 0xD8;
-	    rf_txctrl_val  = 0x00045CA0;
-	    tc_pgdelay_val = 0xC2;
-	    fs_pllcfg_val  = 0x08400508;
-	    fs_plltune_val = 0x26;
-	    break;
-	case DW_CHANNEL_3:
-	    rf_rxctrl_val  = 0xD8;
-	    rf_txctrl_val  = 0x00086CC0;
-	    tc_pgdelay_val = 0xC5;
-	    fs_pllcfg_val  = 0x08401009;
-	    fs_plltune_val = 0x5E;
-	    break;
-	case DW_CHANNEL_4:
-	    rf_rxctrl_val  = 0xBC;
-	    rf_txctrl_val  = 0x00045C80;
-	    tc_pgdelay_val = 0x95;
-	    fs_pllcfg_val  = 0x08400508;
-	    fs_plltune_val = 0x26;
-	    break;
-	case DW_CHANNEL_5:
-	    rf_rxctrl_val  = 0xD8;
-	    rf_txctrl_val  = 0x001E3FE0;
-	    tc_pgdelay_val = 0xC0;
-	    fs_pllcfg_val  = 0x0800041D;
-	    fs_plltune_val = 0xA6;
-	    break;
-	case DW_CHANNEL_7:
-	    rf_rxctrl_val  = 0xBC;
-	    rf_txctrl_val  = 0x001E7DE0;
-	    tc_pgdelay_val = 0x93;
-	    fs_pllcfg_val  = 0x0800041D;
-	    fs_plltune_val = 0xA6;
-	    break;
+        case DW_CHANNEL_1:
+            rf_rxctrl_val  = 0xD8;
+            rf_txctrl_val  = 0x00005C40;
+            tc_pgdelay_val = 0xC9;
+            fs_pllcfg_val  = 0x09000407;
+            fs_plltune_val = 0x1E;
+            break;
+        case DW_CHANNEL_2:
+            rf_rxctrl_val  = 0xD8;
+            rf_txctrl_val  = 0x00045CA0;
+            tc_pgdelay_val = 0xC2;
+            fs_pllcfg_val  = 0x08400508;
+            fs_plltune_val = 0x26;
+            break;
+        case DW_CHANNEL_3:
+            rf_rxctrl_val  = 0xD8;
+            rf_txctrl_val  = 0x00086CC0;
+            tc_pgdelay_val = 0xC5;
+            fs_pllcfg_val  = 0x08401009;
+            fs_plltune_val = 0x5E;
+            break;
+        case DW_CHANNEL_4:
+            rf_rxctrl_val  = 0xBC;
+            rf_txctrl_val  = 0x00045C80;
+            tc_pgdelay_val = 0x95;
+            fs_pllcfg_val  = 0x08400508;
+            fs_plltune_val = 0x26;
+            break;
+        case DW_CHANNEL_5:
+            rf_rxctrl_val  = 0xD8;
+            rf_txctrl_val  = 0x001E3FE0;
+            tc_pgdelay_val = 0xC0;
+            fs_pllcfg_val  = 0x0800041D;
+            fs_plltune_val = 0xA6;
+            break;
+        case DW_CHANNEL_7:
+            rf_rxctrl_val  = 0xBC;
+            rf_txctrl_val  = 0x001E7DE0;
+            tc_pgdelay_val = 0x93;
+            fs_pllcfg_val  = 0x0800041D;
+            fs_plltune_val = 0xA6;
+            break;
     }
 
     // === Configure Preamble length
@@ -158,53 +158,53 @@ void Configure(dw1000_base_conf_t *dw_conf)
     tx_fctrl_val  &= ~DW_PE_MASK;
     if (dw_conf->preamble_length == DW_PREAMBLE_LENGTH_64)
     {
-	drx_tune1b_val = 0x0010;
-	drx_tune4h_val = 0x0010;
+        drx_tune1b_val = 0x0010;
+        drx_tune4h_val = 0x0010;
     }
     else if (dw_conf->preamble_length <= DW_PREAMBLE_LENGTH_1024)
     {
-	drx_tune1b_val = 0x0020;
-	drx_tune4h_val = 0x0028;
+        drx_tune1b_val = 0x0020;
+        drx_tune4h_val = 0x0028;
     }
     else if (dw_conf->preamble_length >  DW_PREAMBLE_LENGTH_1024)
     {
-	drx_tune1b_val = 0x0064;
-	drx_tune4h_val = 0x0028;
+        drx_tune1b_val = 0x0064;
+        drx_tune4h_val = 0x0028;
     }
     switch (dw_conf->preamble_length)
     {
-	case DW_PREAMBLE_LENGTH_64:
-	    tx_fctrl_val   |= (0x01 << DW_TXPSR) & DW_TXPSR_MASK;
-	    tx_fctrl_val   |= (0x00 << DW_PE)    & DW_PE_MASK;
-	    break;
-	case DW_PREAMBLE_LENGTH_128:
-	    tx_fctrl_val   |= (0x01 << DW_TXPSR) & DW_TXPSR_MASK;
-	    tx_fctrl_val   |= (0x01 << DW_PE)    & DW_PE_MASK;
-	    break;
-	case DW_PREAMBLE_LENGTH_256:
-	    tx_fctrl_val   |= (0x01 << DW_TXPSR) & DW_TXPSR_MASK;
-	    tx_fctrl_val   |= (0x02 << DW_PE)    & DW_PE_MASK;
-	    break;
-	case DW_PREAMBLE_LENGTH_512:
-	    tx_fctrl_val   |= (0x01 << DW_TXPSR) & DW_TXPSR_MASK;
-	    tx_fctrl_val   |= (0x03 << DW_PE)    & DW_PE_MASK;
-	    break;
-	case DW_PREAMBLE_LENGTH_1024:
-	    tx_fctrl_val   |= (0x02 << DW_TXPSR) & DW_TXPSR_MASK;
-	    tx_fctrl_val   |= (0x00 << DW_PE)    & DW_PE_MASK;
-	    break;
-	case DW_PREAMBLE_LENGTH_1536:
-	    tx_fctrl_val   |= (0x02 << DW_TXPSR) & DW_TXPSR_MASK;
-	    tx_fctrl_val   |= (0x01 << DW_PE)    & DW_PE_MASK;
-	    break;
-	case DW_PREAMBLE_LENGTH_2048:
-	    tx_fctrl_val   |= (0x02 << DW_TXPSR) & DW_TXPSR_MASK;
-	    tx_fctrl_val   |= (0x02 << DW_PE)    & DW_PE_MASK;
-	    break;
-	case DW_PREAMBLE_LENGTH_4096:
-	    tx_fctrl_val   |= (0x03 << DW_TXPSR) & DW_TXPSR_MASK;
-	    tx_fctrl_val   |= (0x00 << DW_PE)    & DW_PE_MASK;
-	    break;
+        case DW_PREAMBLE_LENGTH_64:
+            tx_fctrl_val   |= (0x01 << DW_TXPSR) & DW_TXPSR_MASK;
+            tx_fctrl_val   |= (0x00 << DW_PE)    & DW_PE_MASK;
+            break;
+        case DW_PREAMBLE_LENGTH_128:
+            tx_fctrl_val   |= (0x01 << DW_TXPSR) & DW_TXPSR_MASK;
+            tx_fctrl_val   |= (0x01 << DW_PE)    & DW_PE_MASK;
+            break;
+        case DW_PREAMBLE_LENGTH_256:
+            tx_fctrl_val   |= (0x01 << DW_TXPSR) & DW_TXPSR_MASK;
+            tx_fctrl_val   |= (0x02 << DW_PE)    & DW_PE_MASK;
+            break;
+        case DW_PREAMBLE_LENGTH_512:
+            tx_fctrl_val   |= (0x01 << DW_TXPSR) & DW_TXPSR_MASK;
+            tx_fctrl_val   |= (0x03 << DW_PE)    & DW_PE_MASK;
+            break;
+        case DW_PREAMBLE_LENGTH_1024:
+            tx_fctrl_val   |= (0x02 << DW_TXPSR) & DW_TXPSR_MASK;
+            tx_fctrl_val   |= (0x00 << DW_PE)    & DW_PE_MASK;
+            break;
+        case DW_PREAMBLE_LENGTH_1536:
+            tx_fctrl_val   |= (0x02 << DW_TXPSR) & DW_TXPSR_MASK;
+            tx_fctrl_val   |= (0x01 << DW_PE)    & DW_PE_MASK;
+            break;
+        case DW_PREAMBLE_LENGTH_2048:
+            tx_fctrl_val   |= (0x02 << DW_TXPSR) & DW_TXPSR_MASK;
+            tx_fctrl_val   |= (0x02 << DW_PE)    & DW_PE_MASK;
+            break;
+        case DW_PREAMBLE_LENGTH_4096:
+            tx_fctrl_val   |= (0x03 << DW_TXPSR) & DW_TXPSR_MASK;
+            tx_fctrl_val   |= (0x00 << DW_PE)    & DW_PE_MASK;
+            break;
     }
 
     // === Configure Preamble code
@@ -218,22 +218,22 @@ void Configure(dw1000_base_conf_t *dw_conf)
     // === Configure PAC size
     switch (dw_conf->pac_size)
     {
-	case DW_PAC_SIZE_8:
-	    if      (dw_conf->prf == DW_PRF_16_MHZ) {drx_tune2_val = 0x311A002D;}
-	    else if (dw_conf->prf == DW_PRF_64_MHZ) {drx_tune2_val = 0x313B006B;}
-	    break;
-	case DW_PAC_SIZE_16:
-	    if      (dw_conf->prf == DW_PRF_16_MHZ) {drx_tune2_val = 0x331A0052;}
-	    else if (dw_conf->prf == DW_PRF_64_MHZ) {drx_tune2_val = 0x333B00BE;}
-	    break;
-	case DW_PAC_SIZE_32:
-	    if      (dw_conf->prf == DW_PRF_16_MHZ) {drx_tune2_val = 0x351A009A;}
-	    else if (dw_conf->prf == DW_PRF_64_MHZ) {drx_tune2_val = 0x353B015E;}
-	    break;
-	case DW_PAC_SIZE_64:
-	    if      (dw_conf->prf == DW_PRF_16_MHZ) {drx_tune2_val = 0x371A011D;}
-	    else if (dw_conf->prf == DW_PRF_64_MHZ) {drx_tune2_val = 0x373B0296;}
-	    break;
+        case DW_PAC_SIZE_8:
+            if      (dw_conf->prf == DW_PRF_16_MHZ) {drx_tune2_val = 0x311A002D;}
+            else if (dw_conf->prf == DW_PRF_64_MHZ) {drx_tune2_val = 0x313B006B;}
+            break;
+        case DW_PAC_SIZE_16:
+            if      (dw_conf->prf == DW_PRF_16_MHZ) {drx_tune2_val = 0x331A0052;}
+            else if (dw_conf->prf == DW_PRF_64_MHZ) {drx_tune2_val = 0x333B00BE;}
+            break;
+        case DW_PAC_SIZE_32:
+            if      (dw_conf->prf == DW_PRF_16_MHZ) {drx_tune2_val = 0x351A009A;}
+            else if (dw_conf->prf == DW_PRF_64_MHZ) {drx_tune2_val = 0x353B015E;}
+            break;
+        case DW_PAC_SIZE_64:
+            if      (dw_conf->prf == DW_PRF_16_MHZ) {drx_tune2_val = 0x371A011D;}
+            else if (dw_conf->prf == DW_PRF_64_MHZ) {drx_tune2_val = 0x373B0296;}
+            break;
     }
 
     // === Configure SFD
@@ -241,33 +241,33 @@ void Configure(dw1000_base_conf_t *dw_conf)
     chan_ctrl_val &= ~DW_DWSFD_MASK;
 
     if (dw_conf->sfd_type == DW_SFD_USER_SPECIFIED)
-	DW_ERROR("dw_conf - SFD: User specified SFD not implemented");
+        DW_ERROR("dw_conf - SFD: User specified SFD not implemented");
     switch (dw_conf->sfd_type)
     {
-	case DW_SFD_STANDARD:
-	    chan_ctrl_val &= ~((1 << DW_DWSFD) & DW_DWSFD_MASK);
-	    break;
-	case DW_SFD_NON_STANDARD:
-	    chan_ctrl_val |= (1 << DW_DWSFD) & DW_DWSFD_MASK;
-	    break;
-	case DW_SFD_USER_SPECIFIED:
-	    // Not implemented yet!
-	    break;
+        case DW_SFD_STANDARD:
+            chan_ctrl_val &= ~((1 << DW_DWSFD) & DW_DWSFD_MASK);
+            break;
+        case DW_SFD_NON_STANDARD:
+            chan_ctrl_val |= (1 << DW_DWSFD) & DW_DWSFD_MASK;
+            break;
+        case DW_SFD_USER_SPECIFIED:
+            // Not implemented yet!
+            break;
     }
     switch (dw_conf->data_rate)
     {
-	case DW_DATA_RATE_110_KBPS:
-	    if      (dw_conf->sfd_type == DW_SFD_STANDARD    ) {drx_tune0b_val = 0x000A;}
-	    else if (dw_conf->sfd_type == DW_SFD_NON_STANDARD) {drx_tune0b_val = 0x0016;}
-	    break;
-	case DW_DATA_RATE_850_KBPS:
-	    if      (dw_conf->sfd_type == DW_SFD_STANDARD    ) {drx_tune0b_val = 0x0001;}
-	    else if (dw_conf->sfd_type == DW_SFD_NON_STANDARD) {drx_tune0b_val = 0x0006;}
-	    break;
-	case DW_DATA_RATE_6800_KBPS:
-	    if      (dw_conf->sfd_type == DW_SFD_STANDARD    ) {drx_tune0b_val = 0x0001;}
-	    else if (dw_conf->sfd_type == DW_SFD_NON_STANDARD) {drx_tune0b_val = 0x0002;}
-	    break;
+        case DW_DATA_RATE_110_KBPS:
+            if      (dw_conf->sfd_type == DW_SFD_STANDARD    ) {drx_tune0b_val = 0x000A;}
+            else if (dw_conf->sfd_type == DW_SFD_NON_STANDARD) {drx_tune0b_val = 0x0016;}
+            break;
+        case DW_DATA_RATE_850_KBPS:
+            if      (dw_conf->sfd_type == DW_SFD_STANDARD    ) {drx_tune0b_val = 0x0001;}
+            else if (dw_conf->sfd_type == DW_SFD_NON_STANDARD) {drx_tune0b_val = 0x0006;}
+            break;
+        case DW_DATA_RATE_6800_KBPS:
+            if      (dw_conf->sfd_type == DW_SFD_STANDARD    ) {drx_tune0b_val = 0x0001;}
+            else if (dw_conf->sfd_type == DW_SFD_NON_STANDARD) {drx_tune0b_val = 0x0002;}
+            break;
     }
 
     // === Configure Data rate
@@ -275,18 +275,18 @@ void Configure(dw1000_base_conf_t *dw_conf)
     tx_fctrl_val &= ~DW_TXBR_MASK;
     switch (dw_conf->data_rate)
     {
-	case DW_DATA_RATE_110_KBPS:
-	    sys_cfg_val  |= (1<<DW_RXM110K) & DW_RXM110K_MASK;
-	    tx_fctrl_val |= (0x00 << DW_TXBR) & DW_TXBR_MASK;
-	    break;
-	case DW_DATA_RATE_850_KBPS:
-	    sys_cfg_val  &= ~((1<<DW_RXM110K) & DW_RXM110K_MASK);
-	    tx_fctrl_val |= (0x01 << DW_TXBR) & DW_TXBR_MASK;
-	    break;
-	case DW_DATA_RATE_6800_KBPS:
-	    sys_cfg_val  &= ~((1<<DW_RXM110K) & DW_RXM110K_MASK);
-	    tx_fctrl_val |= (0x02 << DW_TXBR) & DW_TXBR_MASK;
-	    break;
+        case DW_DATA_RATE_110_KBPS:
+            sys_cfg_val  |= (1<<DW_RXM110K) & DW_RXM110K_MASK;
+            tx_fctrl_val |= (0x00 << DW_TXBR) & DW_TXBR_MASK;
+            break;
+        case DW_DATA_RATE_850_KBPS:
+            sys_cfg_val  &= ~((1<<DW_RXM110K) & DW_RXM110K_MASK);
+            tx_fctrl_val |= (0x01 << DW_TXBR) & DW_TXBR_MASK;
+            break;
+        case DW_DATA_RATE_6800_KBPS:
+            sys_cfg_val  &= ~((1<<DW_RXM110K) & DW_RXM110K_MASK);
+            tx_fctrl_val |= (0x02 << DW_TXBR) & DW_TXBR_MASK;
+            break;
     }
 
     // Commit configuration to device
@@ -313,7 +313,7 @@ uint32_t DW1000::GetDeviceID()
     static uint64_t device_id = 0x0ULL;
     if (device_id == 0x0ULL)
     {
-        device_id = dw_read_reg_64(DW_REG_DEV_ID, DW_LEN_DEV_ID);
+        device_id = readRegister64(DW_REG_DEV_ID, DW_LEN_DEV_ID);
     }
     return device_id;
 }
@@ -325,12 +325,32 @@ void DW1000::ClearPendingInterrupt(uint64_t mask)
 
 void DW1000::EnableInterrupt(uint32_t mask)
 {
-    WriteRegister(DW_REG_SYS_MASK, DW_LEN_SYS_MASK, (uint8_t *)&mask);
+    writeRegister(DW_REG_SYS_MASK, DW_LEN_SYS_MASK, (uint8_t *)&mask);
 }
 
 void DW1000::trxOff()
 {
-    uint32_t sys_ctrl_val = dw_read_reg_32(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL);
+    uint32_t sys_ctrl_val = readRegister32(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL);
     sys_ctrl_val |= (1<<DW_TRXOFF) & DW_TRXOFF_MASK;
     writeRegister(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL, (uint8_t *)&sys_ctrl_val);
+}
+
+void DW1000::writeRegister(uint32_t  reg_addr, uint32_t  reg_len, uint8_t * p_data)
+{
+}
+
+void DW1000::writeSubregister(uint32_t reg_addr, uint32_t subreg_addr, uint32_t subreg_len, uint8_t *p_data)
+{
+}
+
+void DW1000::readRegister(uint32_t reg_addr, uint32_t reg_len, uint8_t * p_data)
+{
+}
+
+uint32_t DW1000::readRegister32(uint32_t regAddr, uint32_t regLen)
+{
+}
+
+uint64_t DW1000::readRegister64(uint32_t regAddr, uint32_t regLen)
+{
 }

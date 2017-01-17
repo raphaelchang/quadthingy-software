@@ -17,14 +17,14 @@ static PWMConfig pwmcfg = {
     0
 };
 
-MotorDriver(PWMDriver *device, uint8_t forward_channel, uint8_t reverse_channel)
+MotorDriver::MotorDriver(PWMDriver *driver, uint8_t forward_channel, uint8_t reverse_channel)
 {
-    m_device = device;
+    m_driver = driver;
     m_forward_channel = forward_channel;
     m_reverse_channel = reverse_channel;
-    pwmStart(m_device, &pwmcfg);
-    pwmEnableChannel(m_device, m_forward_channel, 0);
-    pwmEnableChannel(m_device, m_reverse_channel, 0);
+    pwmStart(m_driver, &pwmcfg);
+    pwmEnableChannel(m_driver, m_forward_channel, 0);
+    pwmEnableChannel(m_driver, m_reverse_channel, 0);
 }
 
 MotorDriver::~MotorDriver()
@@ -46,13 +46,13 @@ void MotorDriver::Set(double duty_cycle)
     cnt_val = (uint32_t)(duty_cycle * (uint32_t)TIM_CLOCK / (uint32_t)ESC_UPDATE_RATE);
     if (sign == 1)
     {
-        pwmEnableChannel(m_device, m_forward_channel, cnt_val);
-        pwmEnableChannel(m_device, m_reverse_channel, 0);
+        pwmEnableChannel(m_driver, m_forward_channel, cnt_val);
+        pwmEnableChannel(m_driver, m_reverse_channel, 0);
     }
     else
     {
-        pwmEnableChannel(m_device, m_forward_channel, 0);
-        pwmEnableChannel(m_device, m_reverse_channel, cnt_val);
+        pwmEnableChannel(m_driver, m_forward_channel, 0);
+        pwmEnableChannel(m_driver, m_reverse_channel, cnt_val);
     }
 }
 

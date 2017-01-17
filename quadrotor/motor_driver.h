@@ -10,7 +10,7 @@ extern "C"
 class MotorDriver
 {
 public:
-    MotorDriver(PWMDriver *device, uint8_t forward_channel, uint8_t reverse_channel);
+    MotorDriver(PWMDriver *driver, uint8_t forward_channel, uint8_t reverse_channel);
     ~MotorDriver();
     void Set(double duty_cycle);
 private:

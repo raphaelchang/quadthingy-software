@@ -25,10 +25,6 @@ int main(void) {
     chThdSleepMilliseconds(1000);
 
     comm_usb_serial_init();
-    uint32_t r = 0;
-    uint32_t g = 85;
-    uint32_t b = 170;
-    bno055_init();
     for(;;)
     {
         chThdSleepMilliseconds(10);
