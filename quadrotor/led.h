@@ -55,7 +55,7 @@ extern "C"
 #define TLC5973_LED_NUM 4
 #define TIM_PERIOD			(((168000000 / 2 / TLC5973_CLK_HZ) - 1))
 #define LED_BUFFER_LEN		(TLC5973_LED_NUM)
-#define BITBUFFER_LED_LEN       156
+#define BITBUFFER_LED_LEN       153
 #define BITBUFFER_PAD		24
 #define BITBUFFER_CMD_LEN       36
 #define BITBUFFER_LEN		(BITBUFFER_LED_LEN * TLC5973_LED_NUM + BITBUFFER_PAD)
@@ -77,6 +77,7 @@ public:
     uint32_t GetColor(int led);
     void SetAllOff();
     void SetAll(uint32_t color);
+    uint16_t* GetBuffer();
 private:
     uint32_t rgbToLocal(uint32_t color);
     uint16_t m_bitbuffer[BITBUFFER_LEN];

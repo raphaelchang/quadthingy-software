@@ -8,22 +8,24 @@ const SPIConfig DW1000::spicfg =
     NULL,
     CS_GPIO,
     CS_PIN,
-    0
+    SPI_CR1_BR_2 | SPI_CR1_BR_1
 };
 
 DW1000::DW1000()
 {
     m_state = DW_STATE_INITIALIZING;
 
-    palSetPadMode(SCK_GPIO, SCK_PIN, PAL_MODE_ALTERNATE(5) |
-            PAL_STM32_OSPEED_HIGHEST);     /* SCK. */
-    palSetPadMode(MISO_GPIO, MISO_PIN, PAL_MODE_ALTERNATE(5) |
-            PAL_STM32_OSPEED_HIGHEST);     /* MISO.*/
-    palSetPadMode(MOSI_GPIO, MOSI_PIN, PAL_MODE_ALTERNATE(5) |
-            PAL_STM32_OSPEED_HIGHEST);     /* MOSI.*/
+    palSetPadMode(SCK_GPIO, SCK_PIN, PAL_MODE_ALTERNATE(6) |
+            PAL_STM32_OSPEED_HIGHEST);
+    palSetPadMode(MISO_GPIO, MISO_PIN, PAL_MODE_ALTERNATE(6) |
+            PAL_STM32_OSPEED_HIGHEST);
+    palSetPadMode(MOSI_GPIO, MOSI_PIN, PAL_MODE_ALTERNATE(6) |
+            PAL_STM32_OSPEED_HIGHEST);
     palSetPadMode(CS_GPIO, CS_PIN, PAL_MODE_OUTPUT_PUSHPULL |
             PAL_STM32_OSPEED_HIGHEST);
+    spiAcquireBus(&SPI_DEV);
     spiStart(&SPI_DEV, &spicfg);
+    spiReleaseBus(&SPI_DEV);
 
     trxOff();
     ClearPendingInterrupt(0x00000007FFFFFFFFULL);
@@ -310,12 +312,17 @@ void DW1000::Configure(dw1000_base_conf_t *dw_conf)
 
 uint32_t DW1000::GetDeviceID()
 {
-    static uint64_t device_id = 0x0ULL;
-    if (device_id == 0x0ULL)
+    static uint32_t device_id = 0x00;
+    if (device_id == 0x00)
     {
-        device_id = readRegister64(DW_REG_DEV_ID, DW_LEN_DEV_ID);
+        device_id = readRegister32(DW_REG_DEV_ID, DW_LEN_DEV_ID);
     }
     return device_id;
+}
+
+uint64_t DW1000::GetDeviceTime()
+{
+    return readRegister64( DW_REG_SYS_TIME, DW_LEN_SYS_TIME );
 }
 
 void DW1000::ClearPendingInterrupt(uint64_t mask)
@@ -337,20 +344,70 @@ void DW1000::trxOff()
 
 void DW1000::writeRegister(uint32_t  reg_addr, uint32_t  reg_len, uint8_t * p_data)
 {
+    uint8_t txbuf[1];
+    uint8_t rxbuf[reg_len];
+    txbuf[0] = 0x80 | (reg_addr & 0x3F);
+    spiAcquireBus(&SPI_DEV);
+    spiSelect(&SPI_DEV);
+    spiExchange(&SPI_DEV, 1, txbuf, rxbuf);
+    spiExchange(&SPI_DEV, reg_len, p_data, rxbuf);
+    spiUnselect(&SPI_DEV);
+    spiReleaseBus(&SPI_DEV); 
 }
 
 void DW1000::writeSubregister(uint32_t reg_addr, uint32_t subreg_addr, uint32_t subreg_len, uint8_t *p_data)
 {
+    // Check if 3-octet header is requried or if 2 will do
+    uint32_t isThreeOctet = (subreg_addr > 0x7F);
+    
+    // Prepare instruction
+    uint32_t instruction = 0x0;
+    instruction = (0xC0 | (reg_addr & 0x3F));
+    instruction = (instruction << 8) | (subreg_addr&0x7F       ) | (isThreeOctet<<7);
+    instruction = (instruction << 8) | (subreg_addr&0x7F80 >> 7);
+    
+    // Write instruction
+    
+    uint8_t rxbuf[subreg_len];
+    uint8_t * pInstr = (uint8_t *)(&instruction) + 2;
+    spiAcquireBus(&SPI_DEV);
+    spiSelect(&SPI_DEV);
+    spiExchange(&SPI_DEV, 1, pInstr--, rxbuf);
+    spiExchange(&SPI_DEV, 1, pInstr--, rxbuf);
+    if (isThreeOctet) {
+        spiExchange(&SPI_DEV, 1, pInstr--, rxbuf);
+    }
+    
+    // Write data
+    spiExchange(&SPI_DEV, subreg_len, p_data, rxbuf);
+    spiUnselect(&SPI_DEV);
+    spiReleaseBus(&SPI_DEV); 
 }
 
 void DW1000::readRegister(uint32_t reg_addr, uint32_t reg_len, uint8_t * p_data)
 {
+    uint8_t txbuf[reg_len];
+    uint8_t rxbuf[1];
+    txbuf[0] = 0x00 | (reg_addr & 0x3F);
+    spiAcquireBus(&SPI_DEV);
+    spiSelect(&SPI_DEV);
+    spiExchange(&SPI_DEV, 1, txbuf, rxbuf);
+    txbuf[0] = 0;
+    spiExchange(&SPI_DEV, reg_len, txbuf, p_data);
+    spiUnselect(&SPI_DEV);
+    spiReleaseBus(&SPI_DEV); 
 }
 
 uint32_t DW1000::readRegister32(uint32_t regAddr, uint32_t regLen)
 {
+    uint32_t result = 0;
+    readRegister(regAddr, regLen, (uint8_t *)&result);
+    return result;
 }
 
 uint64_t DW1000::readRegister64(uint32_t regAddr, uint32_t regLen)
 {
+    uint64_t result = 0;
+    readRegister(regAddr, regLen, (uint8_t *)&result);
+    return result;
 }

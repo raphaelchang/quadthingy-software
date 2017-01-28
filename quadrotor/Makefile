@@ -8,7 +8,7 @@
 ifeq ($(USE_OPT),)
   USE_OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16
   USE_OPT += -DBOARD_OTG_NOVBUSSENS $(build_args)
-  USE_OPT += -Wdouble-promotion
+  USE_OPT += -Wdouble-promotion --specs=nosys.specs
 endif
 
 # C specific options here (added to USE_OPT).
@@ -125,7 +125,7 @@ CSRC = $(STARTUPSRC) \
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-CPPSRC = main.cpp comm_usb.cpp bno055.cpp controller.cpp motor_driver.cpp led.cpp dw1000.cpp
+CPPSRC = main.cpp comm_usb.cpp bno055.cpp controller.cpp motor_driver.cpp led.cpp dw1000.cpp vl53l0x.cpp isl29501.cpp ms5611.cpp
 
 # C sources to be compiled in ARM mode regardless of the global setting.
 # NOTE: Mixing ARM and THUMB mode enables the -mthumb-interwork compiler

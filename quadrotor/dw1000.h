@@ -673,6 +673,7 @@ public:
     ~DW1000();
     void Configure(dw1000_base_conf_t *dw_conf);
     uint32_t GetDeviceID();
+    uint64_t GetDeviceTime();
     void ClearPendingInterrupt(uint64_t mask);
     void EnableInterrupt(uint32_t mask);
 

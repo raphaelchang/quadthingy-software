@@ -65,9 +65,9 @@ Vector3d BNO055::GetVector(uint8_t addr)
             break;
         case VECTOR_GYROSCOPE:
             /* 1rps = 900 LSB */
-            vx = ((double)x)/900.0;
-            vy = ((double)y)/900.0;
-            vz = ((double)z)/900.0;
+            vx = -((double)x)/900.0;
+            vy = -((double)y)/900.0;
+            vz = -((double)z)/900.0;
             break;
         case VECTOR_EULER:
             /* 1 degree = 16 LSB */
