@@ -9,6 +9,8 @@ const I2CConfig BNO055::i2ccfg = {
     STD_DUTY_CYCLE,
 };
 
+//static uint8_t calibData[] = {0x3, 0x0, 0x3A, 0x0, 0x1A, 0x0, 0xFE, 0x1, 0x45, 0xFF, 0xBF, 0xFC, 0xC1, 0x2, 0x31, 0x0, 0x7B, 0xFE, 0xE8, 0x3, 0x3F, 0x2};
+
 BNO055::BNO055()
 {
     i2cStart(&IMU_I2C_DEV, &i2ccfg);
@@ -31,14 +33,50 @@ BNO055::BNO055()
     }
     chThdSleepMilliseconds(50);
 
-    /* Set to normal power mode */
+    //[> Set to normal power mode <]
     WriteAddress(BNO055_PWR_MODE_ADDR, POWER_MODE_NORMAL);
     chThdSleepMilliseconds(10);
 
     WriteAddress(BNO055_PAGE_ID_ADDR, 0);
+
+    uint8_t unitsel = (0 << 7) | // Orientation = Android
+        (0 << 4) | // Temperature = Celsius
+        (0 << 2) | // Euler = Degrees
+        (1 << 1) | // Gyro = Rads
+        (0 << 0);  // Accelerometer = m/s^2
+    WriteAddress(BNO055_UNIT_SEL_ADDR, unitsel);
+
     WriteAddress(BNO055_SYS_TRIGGER_ADDR, 0x80);
     chThdSleepMilliseconds(10);
-    WriteAddress(BNO055_OPR_MODE_ADDR, OPERATION_MODE_NDOF);
+
+    //WriteAddress(ACCEL_OFFSET_X_LSB_ADDR, calibData[0]);
+    //WriteAddress(ACCEL_OFFSET_X_MSB_ADDR, calibData[1]);
+    //WriteAddress(ACCEL_OFFSET_Y_LSB_ADDR, calibData[2]);
+    //WriteAddress(ACCEL_OFFSET_Y_MSB_ADDR, calibData[3]);
+    //WriteAddress(ACCEL_OFFSET_Z_LSB_ADDR, calibData[4]);
+    //WriteAddress(ACCEL_OFFSET_Z_MSB_ADDR, calibData[5]);
+
+    //WriteAddress(GYRO_OFFSET_X_LSB_ADDR, calibData[6]);
+    //WriteAddress(GYRO_OFFSET_X_MSB_ADDR, calibData[7]);
+    //WriteAddress(GYRO_OFFSET_Y_LSB_ADDR, calibData[8]);
+    //WriteAddress(GYRO_OFFSET_Y_MSB_ADDR, calibData[9]);
+    //WriteAddress(GYRO_OFFSET_Z_LSB_ADDR, calibData[10]);
+    //WriteAddress(GYRO_OFFSET_Z_MSB_ADDR, calibData[11]);
+
+    //WriteAddress(MAG_OFFSET_X_LSB_ADDR, calibData[12]);
+    //WriteAddress(MAG_OFFSET_X_MSB_ADDR, calibData[13]);
+    //WriteAddress(MAG_OFFSET_Y_LSB_ADDR, calibData[14]);
+    //WriteAddress(MAG_OFFSET_Y_MSB_ADDR, calibData[15]);
+    //WriteAddress(MAG_OFFSET_Z_LSB_ADDR, calibData[16]);
+    //WriteAddress(MAG_OFFSET_Z_MSB_ADDR, calibData[17]);
+
+    //WriteAddress(ACCEL_RADIUS_LSB_ADDR, calibData[18]);
+    //WriteAddress(ACCEL_RADIUS_MSB_ADDR, calibData[19]);
+
+    //WriteAddress(MAG_RADIUS_LSB_ADDR, calibData[20]);
+    //WriteAddress(MAG_RADIUS_MSB_ADDR, calibData[21]);
+
+    WriteAddress(BNO055_OPR_MODE_ADDR, OPERATION_MODE_IMUPLUS);
     chThdSleepMilliseconds(50);
 }
 
@@ -46,7 +84,7 @@ BNO055::~BNO055()
 {
 }
 
-Vector3d BNO055::GetVector(uint8_t addr)
+Vector3f BNO055::GetVector(uint8_t addr)
 {
     double vx, vy, vz;
     uint8_t buffer[6];
@@ -85,7 +123,20 @@ Vector3d BNO055::GetVector(uint8_t addr)
             break;
     }
 
-    return Vector3d(vx, vy, vz);
+    return Vector3f(vx, vy, vz);
+}
+
+void BNO055::GetSensorOffsets(uint8_t *calib_data)
+{
+    if (ReadAddress(BNO055_CALIB_STAT_ADDR) == 255)
+    {
+        WriteAddress(BNO055_OPR_MODE_ADDR, OPERATION_MODE_CONFIG);
+        chThdSleepMilliseconds(55);
+        ReadAddressLength(ACCEL_OFFSET_X_LSB_ADDR, NUM_BNO055_OFFSET_REGISTERS, calib_data);
+        chThdSleepMilliseconds(20);
+        WriteAddress(BNO055_OPR_MODE_ADDR, OPERATION_MODE_NDOF);
+        chThdSleepMilliseconds(50);
+    }
 }
 
 uint8_t BNO055::GetStatus()

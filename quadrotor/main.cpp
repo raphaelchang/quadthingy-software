@@ -15,25 +15,37 @@
 #include "math.h"
 #include "hw_conf.h"
 #include <inttypes.h>
+#include <Eigen/Dense>
+#include "utils.h"
 
-//#define RUN
+#define RUN
 
 const I2CConfig i2ccfg = {
     OPMODE_I2C,
     100000,
     STD_DUTY_CYCLE,
 };
+static Controller *controller;
+static systime_t period;
 
-static THD_WORKING_AREA(controller_update_wa, 1024);
+static THD_WORKING_AREA(controller_update_wa, 4096);
 static THD_FUNCTION(controller_update, arg) {
     (void)arg;
 
     chRegSetThreadName("Controller update");
 
-    Controller *controller = new Controller();
+    double throttle = 0;
+    static systime_t lastTime = chVTGetSystemTime();
+
     for (;;)
     {
-        controller->SetThrottle(0.5);
+        //if (throttle < 0.5)
+        //{
+            //throttle += 0.005;
+        //}
+        //controller->SetThrottle(throttle);
+        period = chVTTimeElapsedSinceX(lastTime);
+        lastTime = chVTGetSystemTime();
         controller->Update();
         chThdSleepMilliseconds(1);
     }
@@ -91,7 +103,16 @@ int main(void) {
 #ifndef RUN
     BNO055 *imu = new BNO055();
 #else
-    chThdCreateStatic(controller_update_wa, sizeof(controller_update_wa), NORMALPRIO, controller_update, NULL);
+    controller = new Controller();
+    chThdCreateStatic(controller_update_wa, sizeof(controller_update_wa), HIGHPRIO, controller_update, NULL);
+    //MotorDriver* m_md1 = new MotorDriver(&MOTOR_DRIVER_1_PWM_DEV, MOTOR_DRIVER_1_FWD_CH, MOTOR_DRIVER_1_REV_CH);
+    //MotorDriver* m_md2 = new MotorDriver(&MOTOR_DRIVER_2_PWM_DEV, MOTOR_DRIVER_2_FWD_CH, MOTOR_DRIVER_2_REV_CH);
+    //MotorDriver* m_md3 = new MotorDriver(&MOTOR_DRIVER_3_PWM_DEV, MOTOR_DRIVER_3_FWD_CH, MOTOR_DRIVER_3_REV_CH);
+    //MotorDriver* m_md4 = new MotorDriver(MOTOR_DRIVER_4_PWM_DEV, MOTOR_DRIVER_4_FWD_CH, MOTOR_DRIVER_4_REV_CH);
+        //m_md1->Set(0.5);
+        //m_md2->Set(-0.5);
+        //m_md3->Set(0.5);
+        //m_md4->Set(-0.5);
 #endif
     DW1000 *dw1000 = new DW1000();
     ISL29501 *tof = new ISL29501();
@@ -112,6 +133,26 @@ int main(void) {
     int i = 0;
     bool buttonReleased = false;
     bool buttonPressed = false;
+
+    uint8_t numAltSamples = 20;
+    double altitudeAvgs[numAltSamples];
+    double altitudeAvg = 0;
+    uint8_t currAltInx = 0;
+    double altZero;
+    for (uint8_t i = 0; i < numAltSamples; i++)
+    {
+        long realPressure = baro->readPressure(true);
+        double realAltitude = baro->getAltitude(realPressure);
+        altitudeAvgs[i] = realAltitude;
+    }
+    for (uint8_t i = 0; i < numAltSamples; i++)
+    {
+        altitudeAvg += altitudeAvgs[i] / numAltSamples;
+    }
+    altZero = altitudeAvg;
+    double throttle = 0;
+
+    controller->Enable();
     for(;;)
     {
         if (!palReadPad(GPIOC, 0))
@@ -130,34 +171,63 @@ int main(void) {
         }
         led->SetAll(0xFFFFFF);
         uint16_t *bbuffer = led->GetBuffer();
-        Eigen::Vector3d vector(0, 0, 0);
-        Eigen::Vector3d vector_grav(0, 0, 0);
+        uint16_t range = sensor->readRangeSingleMillimeters();
+        chprintf((BaseSequentialStream*)&SDU1, "range: %d\n", range);
+        //chprintf((BaseSequentialStream*)&SDU1, "isl: %d\n", tof->GetAmbientLight());
+        double realTemperature = baro->readTemperature(true);
+        long realPressure = baro->readPressure(true);
+        double realAltitude = baro->getAltitude(realPressure);
+        altitudeAvg -= altitudeAvgs[currAltInx] / numAltSamples;
+        altitudeAvgs[currAltInx] = realAltitude;
+        currAltInx = (currAltInx + 1) % numAltSamples;
+        altitudeAvg += realAltitude / numAltSamples;
+        //double altError = 0.25 - (altitudeAvg - altZero);
+        int16_t altError = 500 - (int16_t)range;
+        throttle += altError * 0.001;
+        if (throttle > 0.9)
+            throttle = 0.9;
+        if (throttle < 0.5)
+            throttle = 0.5;
+#ifdef RUN
+        controller->SetThrottle(0.5);
+#endif
+        chprintf((BaseSequentialStream*)&SDU1, "throttle: %f\n", throttle);
+        //chprintf((BaseSequentialStream*)&SDU1, "barometer: %f %f %f\n", realTemperature, altitudeAvg - altZero, throttle);
+        Eigen::Vector3f vector(0, 0, 0);
+        Eigen::Vector3f vector_grav(0, 0, 0);
+        Eigen::Vector3f vector_acc(0, 0, 0);
 #ifndef RUN
         vector = imu->GetVector(VECTOR_EULER);
         vector_grav = imu->GetVector(VECTOR_GYROSCOPE);
-        chprintf((BaseSequentialStream*)&SDU1, "power button: %d \n", palReadPad(GPIOC, 0));
-        chprintf((BaseSequentialStream*)&SDU1, "imu: %f %f %f, grav: %f %f %f\n", vector(0), vector(1), vector(2), vector_grav(0), vector_grav(1), vector_grav(2));
-#endif
-        chprintf((BaseSequentialStream*)&SDU1, "range: %d\n", sensor->readRangeSingleMillimeters());
-        chprintf((BaseSequentialStream*)&SDU1, "isl: %d\n", tof->GetAmbientLight());
-        double realTemperature = baro->readTemperature();
-        long realPressure = baro->readPressure();
-        double realAltitude = baro->getAltitude(realPressure);
-        double realTemperature2 = baro->readTemperature(true);
-        long realPressure2 = baro->readPressure(true);
-        double realAltitude2 = baro->getAltitude(realPressure2);
-        chprintf((BaseSequentialStream*)&SDU1, "barometer: %f %ld %f %f %ld %f\n", realTemperature, realPressure, realAltitude, realTemperature2, realPressure2, realAltitude2);
-        char buffer [100];
-        uint32_t id = dw1000->GetDeviceID();
-        snprintf(buffer, 100, "dw: %08x\n", id);
-        //chprintf((BaseSequentialStream*)&SDU1, "%s", buffer);
-        for (int j = 0; j < 648; j++)
+        vector_acc = imu->GetVector(VECTOR_ACCELEROMETER);
+        uint8_t calib = imu->ReadAddress(BNO055_CALIB_STAT_ADDR);
+        uint8_t calibdata[22];
+        imu->GetSensorOffsets(calibdata);
+        chprintf((BaseSequentialStream*)&SDU1, "imu: %d %f %f %f %f %f %f %f %f %f\n", calib, vector(0), vector(1), vector(2), vector_grav(0), vector_grav(1), vector_grav(2), vector_acc(0), vector_acc(1), vector_acc(2));
+        for (uint8_t i = 0; i < 22; i++)
         {
+            chprintf((BaseSequentialStream*)&SDU1, "0x%x, ", calibdata[i]);
+        }
+        chprintf((BaseSequentialStream*)&SDU1, "\n");
+#else
+        vector = controller->GetOrientation();
+        vector_grav = controller->GetRotationRate();
+        vector_acc = controller->m_imu->m_imu->GetVector(VECTOR_EULER);
+        //uint8_t calib = controller->m_imu->m_imu->ReadAddress(BNO055_CALIB_STAT_ADDR);
+        chprintf((BaseSequentialStream*)&SDU1, "imu: %f %f %f %f %f %f %f %f %f\n", vector(0), vector(1), vector(2), vector_grav(0), vector_grav(1), vector_grav(2), vector_acc(0), vector_acc(1), vector_acc(2));
+        chprintf((BaseSequentialStream*)&SDU1, "%d\n", ST2US(period));
+#endif
+        //char buffer [100];
+        //uint32_t id = dw1000->GetDeviceTime();
+        //snprintf(buffer, 100, "dw: %08x\n", id);
+        //chprintf((BaseSequentialStream*)&SDU1, "%s", buffer);
+        //for (int j = 0; j < 648; j++)
+        //{
             //if (j % 3 == 0)
                 //chprintf((BaseSequentialStream*)&SDU1, " | ", bbuffer[j]);
             //chprintf((BaseSequentialStream*)&SDU1, "%d ", bbuffer[j]);
-        }
+        //}
         //chprintf((BaseSequentialStream*)&SDU1, "\n");
-        chThdSleepMilliseconds(1000);
+        chThdSleepMilliseconds(10);
     }
 }

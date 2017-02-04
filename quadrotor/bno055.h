@@ -12,6 +12,7 @@ extern "C"
 
 #define BNO055_ADDR 0x28
 #define BNO055_ID 0xA0
+#define NUM_BNO055_OFFSET_REGISTERS (22)
 
 #define BNO055_PAGE_ID_ADDR                                     0X07
 
@@ -183,6 +184,7 @@ extern "C"
 #define VECTOR_LINEARACCEL										BNO055_LINEAR_ACCEL_DATA_X_LSB_ADDR
 #define VECTOR_GRAVITY 											BNO055_GRAVITY_DATA_X_LSB_ADDR
 
+
 class BNO055
 {
 public:
@@ -191,7 +193,8 @@ public:
     uint8_t ReadAddress(uint8_t addr);
     void ReadAddressLength(uint8_t addr, uint8_t len, uint8_t *buffer);
     void WriteAddress(uint8_t addr, uint8_t value);
-    Eigen::Vector3d GetVector(uint8_t addr);
+    Eigen::Vector3f GetVector(uint8_t addr);
+    void GetSensorOffsets(uint8_t *calib_data);
     uint8_t GetStatus();
     uint8_t GetError();
 private:

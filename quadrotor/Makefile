@@ -63,13 +63,13 @@ endif
 # Stack size to be allocated to the Cortex-M process stack. This stack is
 # the stack used by the main() thread.
 ifeq ($(USE_PROCESS_STACKSIZE),)
-  USE_PROCESS_STACKSIZE = 0x400
+  USE_PROCESS_STACKSIZE = 0x1000
 endif
 
 # Stack size to the allocated to the Cortex-M main/exceptions stack. This
 # stack is used for processing interrupts and exceptions.
 ifeq ($(USE_EXCEPTIONS_STACKSIZE),)
-  USE_EXCEPTIONS_STACKSIZE = 0x400
+  USE_EXCEPTIONS_STACKSIZE = 0x1000
 endif
 
 # Enables the use of FPU on Cortex-M4 (no, softfp, hard).
@@ -125,7 +125,7 @@ CSRC = $(STARTUPSRC) \
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-CPPSRC = main.cpp comm_usb.cpp bno055.cpp controller.cpp motor_driver.cpp led.cpp dw1000.cpp vl53l0x.cpp isl29501.cpp ms5611.cpp
+CPPSRC = main.cpp comm_usb.cpp bno055.cpp controller.cpp imu.cpp motor_driver.cpp led.cpp dw1000.cpp vl53l0x.cpp isl29501.cpp ms5611.cpp
 
 # C sources to be compiled in ARM mode regardless of the global setting.
 # NOTE: Mixing ARM and THUMB mode enables the -mthumb-interwork compiler
