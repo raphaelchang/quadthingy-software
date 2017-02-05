@@ -67,7 +67,8 @@ void IMU::Update()
     m_J(5, 0) = -sin_x * cos_y;
     m_J(5, 1) = -cos_x * sin_y;
     m_z.head<3>() = m_imu->GetVector(VECTOR_GYROSCOPE);
-    m_z.tail<3>() = m_imu->GetVector(VECTOR_ACCELEROMETER) / 9.8;
+    Vector3f acc = m_imu->GetVector(VECTOR_ACCELEROMETER);
+    m_z.tail<3>() = acc / acc.norm();
     m_z(4) *= -1;
     Matrix<float, 9, 6> J_T = m_J.transpose();
     Matrix<float, 6, 1> y = m_z - H(m_x);

@@ -31,9 +31,9 @@ LED::LED() {
             }
         }
         uint32_t tmp_color = rgbToLocal(m_rgb_data[i]);
-        uint8_t r = (tmp_color >> 16) & 0xFF;
-        uint8_t g = (tmp_color >> 8) & 0xFF;
-        uint8_t b = tmp_color & 0xFF;
+        uint16_t r = (uint16_t)(4095.0 * (float)((tmp_color >> 16) & 0xFF) / 255.0);
+        uint16_t g = (uint16_t)(4095.0 * (float)((tmp_color >> 8) & 0xFF) / 255.0);
+        uint16_t b = (uint16_t)(4095.0 * (float)(tmp_color & 0xFF) / 255.0);
 
         for (bit = 0; bit < 12; bit++) {
             if (g & (1 << (12 - bit - 1))) {
@@ -43,14 +43,14 @@ LED::LED() {
             }
         }
         for (bit = 0; bit < 12; bit++) {
-            if (r & (1 << (12 - bit - 1))) {
+            if (b & (1 << (12 - bit - 1))) {
                 SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 36 + bit * 3 + i * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 36 + bit * 3 + i * BITBUFFER_LED_LEN);
             }
         }
         for (bit = 0; bit < 12; bit++) {
-            if (b & (1 << (12 - bit - 1))) {
+            if (r & (1 << (12 - bit - 1))) {
                 SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 72 + bit * 3 + i * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 72 + bit * 3 + i * BITBUFFER_LED_LEN);
@@ -105,7 +105,7 @@ LED::LED() {
     // Channel 1 Configuration in PWM mode
     TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
     TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-    TIM_OCInitStructure.TIM_Pulse = m_bitbuffer[0];
+    TIM_OCInitStructure.TIM_Pulse = 0;
     TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 
     TIM_OC1Init(TIM3, &TIM_OCInitStructure);
@@ -130,9 +130,9 @@ void LED::SetColor(int led, uint32_t color) {
         color = rgbToLocal(color);
 
         int bit;
-        uint8_t r = (color >> 16) & 0xFF;
-        uint8_t g = (color >> 8) & 0xFF;
-        uint8_t b = color & 0xFF;
+        uint16_t r = (uint16_t)(4095.0 * (float)((color >> 16) & 0xFF) / 255.0);
+        uint16_t g = (uint16_t)(4095.0 * (float)((color >> 8) & 0xFF) / 255.0);
+        uint16_t b = (uint16_t)(4095.0 * (float)(color & 0xFF) / 255.0);
 
         for (bit = 0; bit < 12; bit++) {
             if (g & (1 << (12 - bit - 1))) {
@@ -142,14 +142,14 @@ void LED::SetColor(int led, uint32_t color) {
             }
         }
         for (bit = 0; bit < 12; bit++) {
-            if (r & (1 << (12 - bit - 1))) {
+            if (b & (1 << (12 - bit - 1))) {
                 SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 36 + bit * 3 + led * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 36 + bit * 3 + led * BITBUFFER_LED_LEN);
             }
         }
         for (bit = 0; bit < 12; bit++) {
-            if (b & (1 << (12 - bit - 1))) {
+            if (r & (1 << (12 - bit - 1))) {
                 SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 72 + bit * 3 + led * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 72 + bit * 3 + led * BITBUFFER_LED_LEN);
@@ -194,9 +194,9 @@ void LED::SetAll(uint32_t color) {
     }
     for (i = 0; i < LED_BUFFER_LEN; i++) {
         uint32_t tmp_color = rgbToLocal(m_rgb_data[i]);
-        uint8_t r = (tmp_color >> 16) & 0xFF;
-        uint8_t g = (tmp_color >> 8) & 0xFF;
-        uint8_t b = tmp_color & 0xFF;
+        uint16_t r = (uint16_t)(4095.0 * (float)((tmp_color >> 16) & 0xFF) / 255.0);
+        uint16_t g = (uint16_t)(4095.0 * (float)((tmp_color >> 8) & 0xFF) / 255.0);
+        uint16_t b = (uint16_t)(4095.0 * (float)(tmp_color & 0xFF) / 255.0);
 
         for (bit = 0; bit < 12; bit++) {
             if (g & (1 << (12 - bit - 1))) {
@@ -206,14 +206,14 @@ void LED::SetAll(uint32_t color) {
             }
         }
         for (bit = 0; bit < 12; bit++) {
-            if (r & (1 << (12 - bit - 1))) {
+            if (b & (1 << (12 - bit - 1))) {
                 SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 36 + bit * 3 + i * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 36 + bit * 3 + i * BITBUFFER_LED_LEN);
             }
         }
         for (bit = 0; bit < 12; bit++) {
-            if (b & (1 << (12 - bit - 1))) {
+            if (r & (1 << (12 - bit - 1))) {
                 SET_ONE_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 72 + bit * 3 + i * BITBUFFER_LED_LEN);
             } else {
                 SET_ZERO_AT_INDEX(m_bitbuffer, BITBUFFER_CMD_LEN + 72 + bit * 3 + i * BITBUFFER_LED_LEN);
@@ -236,5 +236,5 @@ uint32_t LED::rgbToLocal(uint32_t color) {
     g = m_gamma_table[g];
     b = m_gamma_table[b];
 
-    return (g << 16) | (r << 12) | b;
+    return (r << 16) | (g << 8) | b;
 }

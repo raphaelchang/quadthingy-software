@@ -59,7 +59,7 @@ extern "C"
 #define BITBUFFER_PAD		24
 #define BITBUFFER_CMD_LEN       36
 #define BITBUFFER_LEN		(BITBUFFER_LED_LEN * TLC5973_LED_NUM + BITBUFFER_PAD)
-#define DUTY_CYCLE		(TIM_PERIOD * 0.1)
+#define DUTY_CYCLE		(TIM_PERIOD * 0.4)
 #define SET_ONE_AT_INDEX(buffer, index) \
     buffer[index] = DUTY_CYCLE; \
     buffer[index + 1] = DUTY_CYCLE; \

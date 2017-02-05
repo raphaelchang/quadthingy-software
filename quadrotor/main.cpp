@@ -152,7 +152,7 @@ int main(void) {
     altZero = altitudeAvg;
     double throttle = 0;
 
-    controller->Enable();
+    //controller->Enable();
     for(;;)
     {
         if (!palReadPad(GPIOC, 0))
@@ -165,11 +165,11 @@ int main(void) {
         }
         if (buttonPressed && !palReadPad(GPIOC, 0))
         {
-            palClearPad(GPIOC, 1);
-            chThdSleepMilliseconds(1000);
-            break;
+            //palClearPad(GPIOC, 1);
+            //chThdSleepMilliseconds(1000);
+            //break;
         }
-        led->SetAll(0xFFFFFF);
+        led->SetAll(0x0000FF);
         uint16_t *bbuffer = led->GetBuffer();
         uint16_t range = sensor->readRangeSingleMillimeters();
         chprintf((BaseSequentialStream*)&SDU1, "range: %d\n", range);
