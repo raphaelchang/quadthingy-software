@@ -1,7 +1,7 @@
 #include "imu.h"
 #include "utils.h"
 
-#define DT 0.005
+#define DT 0.004
 
 using namespace Eigen;
 

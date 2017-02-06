@@ -77,7 +77,7 @@ public:
     uint32_t GetColor(int led);
     void SetAllOff();
     void SetAll(uint32_t color);
-    uint16_t* GetBuffer();
+
 private:
     uint32_t rgbToLocal(uint32_t color);
     uint16_t m_bitbuffer[BITBUFFER_LEN];

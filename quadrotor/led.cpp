@@ -222,11 +222,6 @@ void LED::SetAll(uint32_t color) {
     }
 }
 
-uint16_t* LED::GetBuffer()
-{
-    return m_bitbuffer;
-}
-
 uint32_t LED::rgbToLocal(uint32_t color) {
     uint32_t r = (color >> 16) & 0xFF;
     uint32_t g = (color >> 8) & 0xFF;

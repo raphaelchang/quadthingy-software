@@ -343,6 +343,7 @@ extern "C"
  * behaviour this needs to be accounted for.
  */
 #define DX_TIMESTAMP_CLEAR_LOW_9 (0xFFFFFFFFFFFFFFE00ULL)
+#define DW_MS_TO_DEVICE_TIME_SCALE 62.6566416e6f
 
 /**
  * \def DW_ERROR(...)
@@ -672,18 +673,55 @@ public:
     DW1000();
     ~DW1000();
     void Configure(dw1000_base_conf_t *dw_conf);
+    void ConfigureRX(dw1000_rx_conf_t * rx_conf);
+    void ConfigureTX(dw1000_tx_conf_t * tx_conf);
+    void Receive(dw1000_tranceive_t receive_type);
+    void Transmit(uint8_t * p_data, uint32_t data_len, dw1000_tranceive_t transmit_type);
+    void TransmitMultipleData(uint8_t  ** pp_data, uint32_t *  p_data_len, uint32_t    length, dw1000_tranceive_t transmit_type);
+    void EnableADC();
+    void DisableADC();
+    float GetTemperature(dw_adc_src_t temp_source);
+    float GetVoltage(dw_adc_src_t voltage_source);
+    float GetNoiseLevel();
+    float GetFPAmplitude();
+    float GetRXPower();
+    float GetFPPower();
+    void GetRXBuffer();
+    void SetRXTimeout(uint16_t us);
+    void EnableRXTimeout();
+    void DisableRXTimeout();
+    uint16_t GetRXTimeout();
+    uint64_t GetRXTimestamp();
+    uint64_t GetTXTimestamp();
+    void SetAntennaDelay(uint16_t delay);
+    uint16_t GetAntennaDelay();
+    void SetDXTimestamp(uint64_t timestamp);
+    uint64_t GetDXTimestamp();
     uint32_t GetDeviceID();
     uint64_t GetDeviceTime();
     void ClearPendingInterrupt(uint64_t mask);
     void EnableInterrupt(uint32_t mask);
+    uint8_t GetSequenceNumber();
+    inline uint64_t MSToDeviceTime(float t)
+    {
+        return (uint64_t)(t * DW_MS_TO_DEVICE_TIME_SCALE);
+    }
 
 private:
     void writeRegister(uint32_t  reg_addr, uint32_t  reg_len, uint8_t * p_data);
     void writeSubregister(uint32_t reg_addr, uint32_t subreg_addr, uint32_t subreg_len, uint8_t *p_data);
+    void writeRegisterMultipleData(uint32_t reg_addr, uint32_t reg_len, uint8_t ** pp_data, uint32_t * p_data_len, uint32_t len_pp_data);
     void readRegister(uint32_t reg_addr, uint32_t reg_len, uint8_t * p_data);
     uint32_t readRegister32(uint32_t regAddr, uint32_t regLen);
     uint64_t readRegister64(uint32_t regAddr, uint32_t regLen);
+    void readSubregister(uint32_t reg_addr, uint32_t subreg_addr, uint32_t subreg_len, uint8_t * p_data);
+    uint32_t readSubregister32(uint32_t reg_addr, uint32_t subreg_addr, uint32_t subreg_len);
+    uint64_t readSubregister64(uint32_t reg_addr, uint32_t subreg_addr, uint32_t subreg_len);
+    uint32_t readOTP32(uint16_t otp_addr);
+    void adcSample();
     void trxOff();
+    void initRX();
+    void initTX();
     /** 
      *      * \brief The current state of the dw1000.
      *           * \note Not fully implemented

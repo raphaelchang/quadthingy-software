@@ -28,6 +28,31 @@ const I2CConfig i2ccfg = {
 static Controller *controller;
 static systime_t period;
 
+static THD_WORKING_AREA(led_update_wa, 256);
+static THD_FUNCTION(led_update, arg) {
+    (void)arg;
+
+    chRegSetThreadName("LED update");
+
+    LED *led = new LED();
+    uint8_t rgb[3] = {0, 0, 255};
+    uint8_t colorCycle = 2;
+    uint8_t colorIndex = 0;
+    for (;;)
+    {
+        if (colorIndex == 255)
+        {
+            colorIndex = 0;
+            colorCycle = (colorCycle + 1) % 3;
+        }
+        rgb[colorCycle]--;
+        rgb[(colorCycle + 1) % 3]++;
+        colorIndex++;
+        led->SetAll((uint32_t)(rgb[0] << 16) | (uint16_t)(rgb[1] << 8) | rgb[2]);
+        chThdSleepMilliseconds(2);
+    }
+}
+
 static THD_WORKING_AREA(controller_update_wa, 4096);
 static THD_FUNCTION(controller_update, arg) {
     (void)arg;
@@ -99,7 +124,7 @@ int main(void) {
     i2cStart(&I2C_DEV, &i2ccfg);
     palSetPadMode(SCL_GPIO, SCL_PIN, PAL_MODE_ALTERNATE(4) | PAL_STM32_OTYPE_OPENDRAIN);
     palSetPadMode(SDA_GPIO, SDA_PIN, PAL_MODE_ALTERNATE(4) | PAL_STM32_OTYPE_OPENDRAIN);
-    LED *led = new LED();
+    chThdCreateStatic(led_update_wa, sizeof(led_update_wa), NORMALPRIO, led_update, NULL);
 #ifndef RUN
     BNO055 *imu = new BNO055();
 #else
@@ -152,6 +177,7 @@ int main(void) {
     altZero = altitudeAvg;
     double throttle = 0;
 
+
     //controller->Enable();
     for(;;)
     {
@@ -169,8 +195,6 @@ int main(void) {
             //chThdSleepMilliseconds(1000);
             //break;
         }
-        led->SetAll(0x0000FF);
-        uint16_t *bbuffer = led->GetBuffer();
         uint16_t range = sensor->readRangeSingleMillimeters();
         chprintf((BaseSequentialStream*)&SDU1, "range: %d\n", range);
         //chprintf((BaseSequentialStream*)&SDU1, "isl: %d\n", tof->GetAmbientLight());
@@ -217,17 +241,10 @@ int main(void) {
         chprintf((BaseSequentialStream*)&SDU1, "imu: %f %f %f %f %f %f %f %f %f\n", vector(0), vector(1), vector(2), vector_grav(0), vector_grav(1), vector_grav(2), vector_acc(0), vector_acc(1), vector_acc(2));
         chprintf((BaseSequentialStream*)&SDU1, "%d\n", ST2US(period));
 #endif
-        //char buffer [100];
-        //uint32_t id = dw1000->GetDeviceTime();
-        //snprintf(buffer, 100, "dw: %08x\n", id);
-        //chprintf((BaseSequentialStream*)&SDU1, "%s", buffer);
-        //for (int j = 0; j < 648; j++)
-        //{
-            //if (j % 3 == 0)
-                //chprintf((BaseSequentialStream*)&SDU1, " | ", bbuffer[j]);
-            //chprintf((BaseSequentialStream*)&SDU1, "%d ", bbuffer[j]);
-        //}
-        //chprintf((BaseSequentialStream*)&SDU1, "\n");
+        char buffer [32];
+        uint32_t id = dw1000->GetDeviceID();
+        snprintf(buffer, 100, "dw: %08x\n", id);
+        chprintf((BaseSequentialStream*)&SDU1, "%s", buffer);
         chThdSleepMilliseconds(10);
     }
 }
