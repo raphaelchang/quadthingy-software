@@ -17,9 +17,9 @@ extern "C"
         {
             {EXT_CH_MODE_DISABLED, NULL},
             {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_RISING_EDGE | EXT_MODE_GPIOD, dw_interrupt_handler},
             {EXT_CH_MODE_DISABLED, NULL},
             {EXT_CH_MODE_DISABLED, NULL},
+            {EXT_CH_MODE_RISING_EDGE | EXT_MODE_GPIOC, dw_interrupt_handler},
             {EXT_CH_MODE_DISABLED, NULL},
             {EXT_CH_MODE_DISABLED, NULL},
             {EXT_CH_MODE_DISABLED, NULL},
@@ -54,11 +54,11 @@ DW1000::DW1000()
 {
     m_state = DW_STATE_INITIALIZING;
 
-    palSetPadMode(SCK_GPIO, SCK_PIN, PAL_MODE_ALTERNATE(6) |
+    palSetPadMode(SCK_GPIO, SCK_PIN, PAL_MODE_ALTERNATE(5) |
             PAL_STM32_OSPEED_HIGHEST);
-    palSetPadMode(MISO_GPIO, MISO_PIN, PAL_MODE_ALTERNATE(6) |
+    palSetPadMode(MISO_GPIO, MISO_PIN, PAL_MODE_ALTERNATE(5) |
             PAL_STM32_OSPEED_HIGHEST);
-    palSetPadMode(MOSI_GPIO, MOSI_PIN, PAL_MODE_ALTERNATE(6) |
+    palSetPadMode(MOSI_GPIO, MOSI_PIN, PAL_MODE_ALTERNATE(5) |
             PAL_STM32_OSPEED_HIGHEST);
     palSetPadMode(CS_GPIO, CS_PIN, PAL_MODE_OUTPUT_PUSHPULL |
             PAL_STM32_OSPEED_HIGHEST);
@@ -424,7 +424,7 @@ void DW1000::Receive(dw1000_tranceive_t receive_type)
     switch (receive_type)
     {
 	case DW_TRANCEIVE_ASYNC:
-            extChannelEnable(&EXTD1, 2);
+            extChannelEnable(&EXTD1, 4);
             break;
 
 	case DW_TRANCEIVE_SYNC:
@@ -472,7 +472,7 @@ void DW1000::Transmit(uint8_t * p_data, uint32_t data_len, dw1000_tranceive_t tr
     switch(transmit_type)
     {
         case DW_TRANCEIVE_ASYNC:
-            extChannelEnable(&EXTD1, 2);
+            extChannelEnable(&EXTD1, 4);
             break;
 
         case DW_TRANCEIVE_SYNC:

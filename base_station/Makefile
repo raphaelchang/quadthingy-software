@@ -8,7 +8,7 @@
 ifeq ($(USE_OPT),)
   USE_OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16
   USE_OPT += -DBOARD_OTG_NOVBUSSENS $(build_args)
-#  USE_OPT += -fsingle-precision-constant
+  USE_OPT += -Wdouble-promotion --specs=nosys.specs
 endif
 
 # C specific options here (added to USE_OPT).
@@ -63,13 +63,13 @@ endif
 # Stack size to be allocated to the Cortex-M process stack. This stack is
 # the stack used by the main() thread.
 ifeq ($(USE_PROCESS_STACKSIZE),)
-  USE_PROCESS_STACKSIZE = 0x400
+  USE_PROCESS_STACKSIZE = 0x1000
 endif
 
 # Stack size to the allocated to the Cortex-M main/exceptions stack. This
 # stack is used for processing interrupts and exceptions.
 ifeq ($(USE_EXCEPTIONS_STACKSIZE),)
-  USE_EXCEPTIONS_STACKSIZE = 0x400
+  USE_EXCEPTIONS_STACKSIZE = 0x1000
 endif
 
 # Enables the use of FPU on Cortex-M4 (no, softfp, hard).
@@ -91,7 +91,7 @@ endif
 #
 
 # Define project name here
-PROJECT = Thingystation
+PROJECT = quadthingy
 
 # Imported source files and paths
 CHIBIOS = ChibiOS_16.1.4
@@ -108,7 +108,7 @@ include $(CHIBIOS)/os/rt/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
 # Other files (optional).
 
 # Define linker script file here
-LDSCRIPT= $(STARTUPLD)/STM32F446xE.ld
+LDSCRIPT = STM32F405xG.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -125,7 +125,7 @@ CSRC = $(STARTUPSRC) \
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-CPPSRC = main.cpp comm_usb.cpp ws2812b.cpp bno055.cpp nrf24l01.cpp esc.cpp controller.cpp adc2.cpp
+CPPSRC = main.cpp comm_usb.cpp dw1000.cpp
 
 # C sources to be compiled in ARM mode regardless of the global setting.
 # NOTE: Mixing ARM and THUMB mode enables the -mthumb-interwork compiler
@@ -231,12 +231,12 @@ endif
 
 all: build/$(PROJECT).bin
 
-build/$(PROJECT).bin: build/$(PROJECT).elf 
+build/$(PROJECT).bin: build/$(PROJECT).elf
 	$(BIN) build/$(PROJECT).elf build/$(PROJECT).bin
 
 # Program
 upload: build/$(PROJECT).bin
-	sudo dfu-util -a 0 -D build/$(PROJECT).bin -S STM32FxSTM32 -s 0x08000000
+	sudo dfu-util -a 0 -D build/$(PROJECT).bin -d ,0483:df11 -s 0x08000000
 
 RULESPATH = $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk

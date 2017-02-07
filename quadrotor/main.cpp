@@ -27,6 +27,8 @@ const I2CConfig i2ccfg = {
 };
 static Controller *controller;
 static systime_t period;
+static uint8_t *rxbuf;
+static uint32_t rxlen;
 
 static THD_WORKING_AREA(led_update_wa, 256);
 static THD_FUNCTION(led_update, arg) {
@@ -73,6 +75,40 @@ static THD_FUNCTION(controller_update, arg) {
         lastTime = chVTGetSystemTime();
         controller->Update();
         chThdSleepMilliseconds(1);
+    }
+}
+
+static THD_WORKING_AREA(dw_update_wa, 4096);
+static THD_FUNCTION(dw_update, arg) {
+    (void)arg;
+
+    chRegSetThreadName("DW1000 update");
+    DW1000 *dw1000 = new DW1000();
+
+    for (;;)
+    {
+        // Configure reception
+        dw1000_rx_conf_t rx_conf;
+        rx_conf.is_delayed = 0;
+        rx_conf.timeout = 0;//0xFFFF; // ~65 ms
+
+        // Receive
+        dw1000->ConfigureRX( &rx_conf );
+        dw1000->Receive( DW_TRANCEIVE_SYNC );
+        rxbuf = dw1000->GetRXBuffer(&rxlen);
+
+        // Configure transmission
+        dw1000_tx_conf_t tx_conf;
+        tx_conf.data_len = 10;
+        tx_conf.is_delayed = 0;
+        dw1000->ConfigureTX( &tx_conf );
+
+        // Transmit
+        static uint8_t counter = 0;
+        uint8_t  p_data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+        p_data[0] = counter++;
+        dw1000->Transmit( p_data, tx_conf.data_len, DW_TRANCEIVE_SYNC );
+        chThdSleepMilliseconds(5);
     }
 }
 
@@ -139,7 +175,7 @@ int main(void) {
         //m_md3->Set(0.5);
         //m_md4->Set(-0.5);
 #endif
-    DW1000 *dw1000 = new DW1000();
+    chThdCreateStatic(dw_update_wa, sizeof(dw_update_wa), HIGHPRIO, dw_update, NULL);
     ISL29501 *tof = new ISL29501();
     VL53L0X *sensor = new VL53L0X(false);
     MS5611 *baro = new MS5611();
@@ -241,10 +277,12 @@ int main(void) {
         chprintf((BaseSequentialStream*)&SDU1, "imu: %f %f %f %f %f %f %f %f %f\n", vector(0), vector(1), vector(2), vector_grav(0), vector_grav(1), vector_grav(2), vector_acc(0), vector_acc(1), vector_acc(2));
         chprintf((BaseSequentialStream*)&SDU1, "%d\n", ST2US(period));
 #endif
-        char buffer [32];
-        uint32_t id = dw1000->GetDeviceID();
-        snprintf(buffer, 100, "dw: %08x\n", id);
-        chprintf((BaseSequentialStream*)&SDU1, "%s", buffer);
+        chprintf((BaseSequentialStream*)&SDU1, "dw: ");
+        for (uint8_t i = 0; i < rxlen; i++)
+        {
+            chprintf((BaseSequentialStream*)&SDU1, "%d ", rxbuf[i]);
+        }
+        chprintf((BaseSequentialStream*)&SDU1, "\n");
         chThdSleepMilliseconds(10);
     }
 }
