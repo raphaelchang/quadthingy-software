@@ -214,6 +214,8 @@ extern "C"
 #define DW_MRXPTO_MASK   (1<<21) /**< \brief dummy */
 #define DW_MRXSFDTO      26      /**< \brief dummy */
 #define DW_MRXSFDTO_MASK (1<<26) /**< \brief dummy */
+#define DW_MTXBERR       28
+#define DW_MTXBERR_MASK  (1<<28)
 
 /* DW_REG_SYS_STATUS LOW */
 #define DW_IRQS        0       /**< \brief dummy */
@@ -688,6 +690,7 @@ public:
     float GetFPAmplitude();
     float GetRXPower();
     float GetFPPower();
+    void ResetRX();
     bool IsTXComplete();
     bool IsRXComplete();
     void ProcessRXBuffer();
@@ -708,7 +711,7 @@ public:
     void EnableInterrupt(uint32_t mask);
     uint8_t GetSequenceNumber();
     dw1000_state_t GetState();
-    void SetCallbacks(void (*tx)(), void (*rx)());
+    void SetCallbacks(void (*tx)(uint64_t), void (*rx)(uint64_t));
     static void ISR();
     inline uint64_t MSToDeviceTime(float t)
     {
@@ -728,8 +731,8 @@ private:
     uint32_t readOTP32(uint16_t otp_addr);
     void adcSample();
     void trxOff();
-    void initRX();
-    void initTX();
+    void initRX(bool delay);
+    void initTX(bool delay);
     /** 
      *      * \brief The current state of the dw1000.
      *           * \note Not fully implemented
@@ -756,10 +759,13 @@ private:
      *           */
     uint8_t  m_p_receive_buffer[DW_RX_BUFFER_MAX_LEN];
 
+    bool m_delay_rx;
+    bool m_delay_tx;
+
     static const SPIConfig spicfg;
     static DW1000 *instance;
-    void (*txCallback)();
-    void (*rxCallback)();
+    void (*txCallback)(uint64_t);
+    void (*rxCallback)(uint64_t);
 };
 
 

@@ -7,66 +7,117 @@
 #include <stdio.h>
 #include <string.h>
 #include "hw_conf.h"
+#include <inttypes.h>
 
-//#define TX
+#define ANSWER_DELAY_US             5000
+#define ANSWER_DELAY_TIMEUNITS      ANSWER_DELAY_US * (128*499.2)
+#define TIMEUNITS_TO_US       (1/(128*499.2))
+
+#define TX
 static DW1000 *dw1000;
+static dw1000_tx_conf_t tx_conf;
+static uint64_t sentTimes[4];
+static uint64_t receivedTimes[3];
+static uint8_t state;
 
+void rxcb(uint64_t status)
+{
+    if (!(status & DW_RXDFR_MASK))
+    {
+        chprintf((BaseSequentialStream*)&SDU1, "receive error %d\n", status);
+        dw1000->ResetRX();
 #ifndef TX
-void rxcb(void)
-{
-        uint32_t rxlen;
-        uint8_t* rxbuf = dw1000->GetRXBuffer(&rxlen);
-
-        chprintf((BaseSequentialStream*)&SDU1, "dw: ");
-        for (uint8_t i = 0; i < rxlen; i++)
-        {
-            chprintf((BaseSequentialStream*)&SDU1, "%d ", rxbuf[i]);
-        }
-        chprintf((BaseSequentialStream*)&SDU1, "\n");
-
         dw1000->Receive( DW_TRANCEIVE_ASYNC );
+#endif
+        return;
+    }
+
+    uint32_t rxlen;
+    uint8_t* rxbuf = dw1000->GetRXBuffer(&rxlen);
+
+    //chprintf((BaseSequentialStream*)&SDU1, "recv: %d %d\n", state, rxbuf[0]);
+    switch(rxbuf[0])
+    {
+        uint8_t data[17];
+        uint64_t treply1;
+        uint64_t tround2;
+        case 0:
+        case 1:
+            receivedTimes[rxbuf[0]] = dw1000->GetRXTimestamp();
+            state = rxbuf[0] + 1;
+            data[0] = state;
+            tx_conf.is_delayed = 1;
+            tx_conf.dx_timestamp = receivedTimes[rxbuf[0]] + ANSWER_DELAY_TIMEUNITS;
+            dw1000->ConfigureTX( &tx_conf );
+            dw1000->Transmit(data, tx_conf.data_len, DW_TRANCEIVE_ASYNC);
+            break;
+        case 2:
+            receivedTimes[rxbuf[0]] = dw1000->GetRXTimestamp();
+            state = rxbuf[0] + 1;
+            data[0] = state;
+            treply1 = sentTimes[1] - receivedTimes[0];
+            tround2 = receivedTimes[2] - sentTimes[1];
+            memcpy(&data[1], &treply1, 8);
+            memcpy(&data[9], &tround2, 8);
+            tx_conf.is_delayed = 1;
+            tx_conf.dx_timestamp = receivedTimes[rxbuf[0]] + ANSWER_DELAY_TIMEUNITS;
+            dw1000->ConfigureTX( &tx_conf );
+            dw1000->Transmit(data, tx_conf.data_len, DW_TRANCEIVE_ASYNC);
+            break;
+        case 3:
+            memcpy(&treply1, &rxbuf[1], 8);
+            memcpy(&tround2, &rxbuf[9], 8);
+            uint64_t tround1 = receivedTimes[1] - sentTimes[0];
+            uint64_t treply2 = sentTimes[2] - receivedTimes[1];
+            float tround1_us = tround1 * TIMEUNITS_TO_US;
+            float tround2_us = tround2 * TIMEUNITS_TO_US;
+            float treply1_us = treply1 * TIMEUNITS_TO_US;
+            float treply2_us = treply2 * TIMEUNITS_TO_US;
+            float tprop = (tround1_us * tround2_us - treply1_us * treply2_us) / (tround1_us + tround2_us + treply1_us + treply2_us);
+            float dist = tprop * 300 / 4.0;
+
+            chprintf((BaseSequentialStream*)&SDU1, "tprop: %f %f %f %f %f %f\n", tround1_us, tround2_us, treply1_us, treply2_us, tprop, dist);
+            break;
+    }
 }
 
-void txcb(void)
+void txcb(uint64_t status)
 {
+    sentTimes[state] = dw1000->GetTXTimestamp();
+    //chprintf((BaseSequentialStream*)&SDU1, "sent: %d\n", sentTimes[state]);
+    dw1000->Receive( DW_TRANCEIVE_ASYNC );
 }
-#endif
 
 int main(void) {
     halInit();
     chSysInit();
 
     dw1000 = new DW1000();
-
-#ifndef TX
     dw1000->SetCallbacks(&txcb, &rxcb);
-    // Configure reception
+
+    tx_conf.data_len = 17;
+    tx_conf.is_delayed = 0;
+    dw1000->ConfigureTX( &tx_conf );
+
     dw1000_rx_conf_t rx_conf;
     rx_conf.is_delayed = 0;
     rx_conf.timeout = 0;//0xFFFF; // ~65 ms
-
-    // Receive
     dw1000->ConfigureRX( &rx_conf );
+
+#ifndef TX
     dw1000->Receive( DW_TRANCEIVE_ASYNC );
-#else
-    comm_usb_serial_init();
 #endif
 
     for (;;)
     {
 #ifdef TX
-        // Configure transmission
-        dw1000_tx_conf_t tx_conf;
-        tx_conf.data_len = 10;
+        state = 0;
+        uint8_t data[17];
+        data[0] = state;
         tx_conf.is_delayed = 0;
         dw1000->ConfigureTX( &tx_conf );
-
-        // Transmit
-        static uint8_t counter = 0;
-        uint8_t  p_data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        p_data[0] = counter++;
-        dw1000->Transmit( p_data, tx_conf.data_len, DW_TRANCEIVE_SYNC );
+        dw1000->Transmit(&state, tx_conf.data_len, DW_TRANCEIVE_ASYNC);
 #endif
-        chThdSleepMilliseconds(10);
+        chThdSleepMilliseconds(100);
     }
 }

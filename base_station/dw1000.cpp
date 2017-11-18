@@ -72,6 +72,8 @@ DW1000 *DW1000::instance = NULL;
 DW1000::DW1000()
 {
     m_state = DW_STATE_INITIALIZING;
+    m_delay_rx = false;
+    m_delay_tx = false;
     instance = this;
 
     palSetPadMode(SCK_GPIO, SCK_PIN, PAL_MODE_ALTERNATE(5) |
@@ -110,7 +112,8 @@ DW1000::DW1000()
         | DW_MRXRFTO_MASK
         | DW_MRXPTO_MASK
         | DW_MRXSFDTO_MASK
-        | DW_MRXRFSL_MASK;
+        | DW_MRXRFSL_MASK
+        | DW_MTXBERR_MASK;
     EnableInterrupt(mask);
 
     const uint32_t lde1  = 0x0301;
@@ -401,13 +404,13 @@ void DW1000::ConfigureRX(dw1000_rx_conf_t * rx_conf)
     // Delayed reception
     if (rx_conf->is_delayed)
     {
+        if (rx_conf->dx_timestamp > 1099511627776)
+            rx_conf->dx_timestamp -= 1099511627776;
         SetDXTimestamp(rx_conf->dx_timestamp);
-
-        uint32_t sys_ctrl_val;
-        sys_ctrl_val  = readRegister32(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL);
-        sys_ctrl_val |= DW_RXDLYE_MASK;
-        writeRegister(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL, (uint8_t *)&sys_ctrl_val);
+        m_delay_rx = true;
     }
+    else
+        m_delay_rx = false;
 }
 
 void DW1000::ConfigureTX(dw1000_tx_conf_t * tx_conf)
@@ -424,13 +427,13 @@ void DW1000::ConfigureTX(dw1000_tx_conf_t * tx_conf)
     // Delayed transmission
     if (tx_conf->is_delayed)
     {
+        if (tx_conf->dx_timestamp > 1099511627776)
+            tx_conf->dx_timestamp -= 1099511627776;
 	SetDXTimestamp(tx_conf->dx_timestamp);
-
-	uint32_t ctrl_reg_val;
-	ctrl_reg_val  = readRegister32(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL);
-	ctrl_reg_val |= DW_TXDLYS_MASK;
-	writeRegister(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL, (uint8_t *)&ctrl_reg_val);
+        m_delay_tx = true;
     }
+    else
+        m_delay_tx = false;
 }
 
 void DW1000::Receive(dw1000_tranceive_t receive_type)
@@ -440,12 +443,11 @@ void DW1000::Receive(dw1000_tranceive_t receive_type)
     if ( m_state == DW_STATE_RECEIVING
 	    || m_state == DW_STATE_TRANSMITTING)
     {
-	//printf("dw1000 error: already using antenna.\n");
         return;
     }
 
     //  Start reception
-    initRX();
+    initRX(m_delay_rx);
 
     const uint32_t wait_mask_lo = DW_RXDFR_MASK
 	| DW_RXPHE_MASK
@@ -486,7 +488,6 @@ void DW1000::Transmit(uint8_t * p_data, uint32_t data_len, dw1000_tranceive_t tr
     if ( m_state == DW_STATE_RECEIVING
         || m_state == DW_STATE_TRANSMITTING)
     {
-        //printf("dw1000 error: already using antenna.\n");
         return;
     }
 
@@ -498,7 +499,7 @@ void DW1000::Transmit(uint8_t * p_data, uint32_t data_len, dw1000_tranceive_t tr
     }
 
     // Initiate transmission
-    initTX();
+    initTX(m_delay_tx);
 
     // Handle transmission complete
     uint64_t status_reg;
@@ -563,7 +564,7 @@ bool DW1000::IsRXComplete()
     return has_received;
 }
 
-void DW1000::SetCallbacks(void (*tx)(), void (*rx)())
+void DW1000::SetCallbacks(void (*tx)(uint64_t), void (*rx)(uint64_t))
 {
     txCallback = tx;
     rxCallback = rx;
@@ -723,6 +724,14 @@ float DW1000::GetFPPower()
     return fp_power;
 }
 
+void DW1000::ResetRX()
+{
+    int val = 0xE0;
+    writeSubregister(DW_REG_PMSC, 3, 1, (uint8_t *)&val);
+    val = 0xF0;
+    writeSubregister(DW_REG_PMSC, 3, 1, (uint8_t *)&val);
+}
+
 void DW1000::ProcessRXBuffer()
 {
     uint32_t * status_reg;
@@ -758,7 +767,11 @@ void DW1000::ProcessRXBuffer()
     }
 
     // Cleanup
-    ClearPendingInterrupt(DW_RXDFR_MASK | DW_RXRFTO_MASK);
+    ClearPendingInterrupt(DW_RXDFR_MASK | DW_RXRFTO_MASK
+        | DW_RXPHE_MASK
+        | DW_RXPTO_MASK
+        | DW_RXSFDTO_MASK
+        | DW_RXRFSL_MASK);
 }
 
 uint8_t* DW1000::GetRXBuffer(uint32_t *len)
@@ -869,23 +882,33 @@ void DW1000::trxOff()
 }
 
 
-void DW1000::initRX()
+void DW1000::initRX(bool delay=false)
 {
     m_state = DW_STATE_RECEIVING;
     // Enable antenna
     uint32_t sys_ctrl_val = readRegister32(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL);
     sys_ctrl_val |= (1<<DW_RXENAB) & DW_RXENAB_MASK;
+    if (delay)
+        sys_ctrl_val |= DW_RXDLYE_MASK;
     writeRegister(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL, (uint8_t *)&sys_ctrl_val);
 }
 
-void DW1000::initTX()
+void DW1000::initTX(bool delay=false)
 {
     m_state = DW_STATE_TRANSMITTING;
+
+    if (delay)
+    {
+        uint8_t send_clear = 0xF8;
+        writeRegister(DW_REG_SYS_STATUS, 1, (uint8_t *)&send_clear);
+    }
 
     // Start transmission
     uint32_t ctrl_reg_val;
     ctrl_reg_val  = readRegister32(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL);
     ctrl_reg_val |= DW_TXSTRT_MASK;
+    if (delay)
+	ctrl_reg_val |= DW_TXDLYS_MASK;
     writeRegister(DW_REG_SYS_CTRL, DW_LEN_SYS_CTRL, (uint8_t *)&ctrl_reg_val);
 }
 
@@ -1056,16 +1079,21 @@ uint32_t DW1000::readOTP32(uint16_t otp_addr)
 
 void DW1000::ISR()
 {
+    uint64_t status_reg = instance->readRegister64(DW_REG_SYS_STATUS, DW_LEN_SYS_STATUS);
+
     if (instance->IsTXComplete())
     {
-        instance->txCallback();
         instance->ClearPendingInterrupt(DW_TXFRS_MASK);
-
         instance->m_state = DW_STATE_IDLE;
+        uint8_t send_clear = 0xF8;
+        instance->writeRegister(DW_REG_SYS_STATUS, 1, (uint8_t *)&send_clear);
+        instance->txCallback(status_reg);
     }
-    if (instance->IsRXComplete())
+    else if (instance->IsRXComplete())
     {
 	instance->ProcessRXBuffer();
-        instance->rxCallback();
+        uint16_t recv_clear = 0x6F00;
+        instance->writeRegister(DW_REG_SYS_STATUS, 2, (uint8_t *)&recv_clear);
+        instance->rxCallback(status_reg);
     }
 }
