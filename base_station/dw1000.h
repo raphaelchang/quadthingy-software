@@ -144,6 +144,8 @@ extern "C"
 #define DW_REG_PMSC 0x36 /**< \brief dummy */
 #define DW_SUBREG_PMSC_CTRL0 0x00 /**< \brief dummy */
 #define DW_SUBLEN_PMSC_CTRL0 0x04 /**< \brief dummy */
+#define DW_SUBREG_PMSC_CTRL1 0x04 /**< \brief dummy */
+#define DW_SUBLEN_PMSC_CTRL1 0x04 /**< \brief dummy */
 
 /*=================================================
   =========== Bitfields
@@ -686,6 +688,8 @@ public:
     float GetFPAmplitude();
     float GetRXPower();
     float GetFPPower();
+    bool IsTXComplete();
+    bool IsRXComplete();
     void ProcessRXBuffer();
     uint8_t* GetRXBuffer(uint32_t *len);
     void SetRXTimeout(uint16_t us);
@@ -704,6 +708,8 @@ public:
     void EnableInterrupt(uint32_t mask);
     uint8_t GetSequenceNumber();
     dw1000_state_t GetState();
+    void SetCallbacks(void (*tx)(), void (*rx)());
+    static void ISR();
     inline uint64_t MSToDeviceTime(float t)
     {
         return (uint64_t)(t * DW_MS_TO_DEVICE_TIME_SCALE);
@@ -751,6 +757,9 @@ private:
     uint8_t  m_p_receive_buffer[DW_RX_BUFFER_MAX_LEN];
 
     static const SPIConfig spicfg;
+    static DW1000 *instance;
+    void (*txCallback)();
+    void (*rxCallback)();
 };
 
 

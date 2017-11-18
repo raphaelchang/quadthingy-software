@@ -18,5 +18,7 @@
 #define CS_GPIO GPIOC
 #define CS_PIN 5
 #define SPI_DEV SPID1
+#define IRQ_GPIO GPIOC
+#define IRQ_PIN 4
 
 #endif /* _HW_CONF_H_ */

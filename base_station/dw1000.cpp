@@ -1,46 +1,63 @@
 #include "dw1000.h"
 #include "hw_conf.h"
+#include "comm_usb.h"
+#include "chprintf.h"
+#include <stdio.h>
+#include <string.h>
 
-extern "C"
-{
-    static void dw_interrupt_handler(EXTDriver *extp, expchannel_t channel)
+static thread_t *tp;
+static THD_WORKING_AREA(interrupt_poll_wa, 256);
+static THD_FUNCTION(interrupt_poll, arg) {
+    (void)arg;
+
+    tp = chThdGetSelfX();
+    chRegSetThreadName("DW interrupt poll");
+    comm_usb_serial_init();
+
+    for (;;)
     {
-        (void)extp;
-        (void)channel;
-
-        chSysLockFromISR();
-
-        chSysUnlockFromISR();
+        chEvtWaitAny((eventmask_t)1);
+        palTogglePad(GPIOB, 0);
+        DW1000::ISR();
     }
-
-    static const EXTConfig extcfg = {
-        {
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_RISING_EDGE | EXT_MODE_GPIOC, dw_interrupt_handler},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL},
-            {EXT_CH_MODE_DISABLED, NULL}
-        }
-    };
 }
+static void dw_interrupt_handler(EXTDriver *extp, expchannel_t channel)
+{
+    (void)extp;
+    (void)channel;
+
+    chSysLockFromISR();
+    chEvtSignalI(tp, (eventmask_t)1);
+    chSysUnlockFromISR();
+}
+
+static const EXTConfig extcfg = {
+    {
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_RISING_EDGE | EXT_MODE_GPIOC, dw_interrupt_handler},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL},
+        {EXT_CH_MODE_DISABLED, NULL}
+    }
+};
 
 const SPIConfig DW1000::spicfg =
 {
@@ -50,9 +67,12 @@ const SPIConfig DW1000::spicfg =
     SPI_CR1_BR_2 | SPI_CR1_BR_1
 };
 
+DW1000 *DW1000::instance = NULL;
+
 DW1000::DW1000()
 {
     m_state = DW_STATE_INITIALIZING;
+    instance = this;
 
     palSetPadMode(SCK_GPIO, SCK_PIN, PAL_MODE_ALTERNATE(5) |
             PAL_STM32_OSPEED_HIGHEST);
@@ -62,11 +82,25 @@ DW1000::DW1000()
             PAL_STM32_OSPEED_HIGHEST);
     palSetPadMode(CS_GPIO, CS_PIN, PAL_MODE_OUTPUT_PUSHPULL |
             PAL_STM32_OSPEED_HIGHEST);
+    palSetPadMode(IRQ_GPIO, IRQ_PIN, PAL_MODE_INPUT);
     spiAcquireBus(&SPI_DEV);
     spiStart(&SPI_DEV, &spicfg);
     spiReleaseBus(&SPI_DEV);
 
+    palSetPadMode(GPIOB, 0, PAL_MODE_OUTPUT_PUSHPULL |
+            PAL_STM32_OSPEED_HIGHEST);
+    palClearPad(GPIOB, 0);
+
     extStart(&EXTD1, &extcfg);
+    chThdCreateStatic(interrupt_poll_wa, sizeof(interrupt_poll_wa), NORMALPRIO, interrupt_poll, NULL);
+
+    uint8_t val = 0x01;
+    writeSubregister(DW_REG_PMSC, DW_SUBREG_PMSC_CTRL0, 1, &val);
+    val = 0x00;
+    writeSubregister(DW_REG_PMSC, 0x03, 1, &val);
+    chThdSleepMicroseconds(10);
+    val = 0xF0;
+    writeSubregister(DW_REG_PMSC, 0x03, 1, &val);
 
     trxOff();
     ClearPendingInterrupt(0x00000007FFFFFFFFULL);
@@ -82,14 +116,14 @@ DW1000::DW1000()
     const uint32_t lde1  = 0x0301;
     const uint32_t lde2  = 0x8000;
     const uint32_t lde3  = 0x0200;
-    writeSubregister(0x36, 0x00, 2, (uint8_t *)&lde1);
-    writeSubregister(0x2D, 0x06, 2, (uint8_t *)&lde2);
+    writeSubregister(DW_REG_PMSC, DW_SUBREG_PMSC_CTRL0, 2, (uint8_t *)&lde1);
+    writeSubregister(DW_REG_OTP_IF, DW_SUBREG_OTP_CTRL, 2, (uint8_t *)&lde2);
     chThdSleepMicroseconds(250);
-    writeSubregister(0x36, 0x00, 2, (uint8_t *)&lde3);
+    writeSubregister(DW_REG_PMSC, DW_SUBREG_PMSC_CTRL0, 2, (uint8_t *)&lde3);
 
     m_conf.prf             = DW_PRF_16_MHZ; 
     m_conf.channel         = DW_CHANNEL_5;
-    m_conf.preamble_length = DW_PREAMBLE_LENGTH_128;
+    m_conf.preamble_length = DW_PREAMBLE_LENGTH_1024;
     m_conf.preamble_code   = DW_PREAMBLE_CODE_3;
     m_conf.pac_size        = DW_PAC_SIZE_8;
     m_conf.sfd_type        = DW_SFD_STANDARD;
@@ -407,7 +441,7 @@ void DW1000::Receive(dw1000_tranceive_t receive_type)
 	    || m_state == DW_STATE_TRANSMITTING)
     {
 	//printf("dw1000 error: already using antenna.\n");
-	return;
+        return;
     }
 
     //  Start reception
@@ -509,6 +543,31 @@ void DW1000::TransmitMultipleData(uint8_t  ** pp_data,
     Transmit(NULL, 0, transmit_type);
 }
 
+bool DW1000::IsTXComplete()
+{
+    uint64_t status_reg = readRegister64(DW_REG_SYS_STATUS, DW_LEN_SYS_STATUS);
+    return status_reg & DW_TXFRS_MASK;
+}
+
+bool DW1000::IsRXComplete()
+{
+    uint64_t status_reg = readRegister64(DW_REG_SYS_STATUS, DW_LEN_SYS_STATUS);
+    const uint32_t wait_mask_lo = DW_RXDFR_MASK
+	| DW_RXPHE_MASK
+	| DW_RXRFTO_MASK
+	| DW_RXPTO_MASK
+	| DW_RXSFDTO_MASK
+	| DW_RXRFSL_MASK;
+    uint64_t has_received  = status_reg & wait_mask_lo;
+    has_received |= (status_reg>>31>>1) & DW_RXPREJ_MASK;
+    return has_received;
+}
+
+void DW1000::SetCallbacks(void (*tx)(), void (*rx)())
+{
+    txCallback = tx;
+    rxCallback = rx;
+}
 
 void DW1000::EnableADC()
 {
@@ -993,4 +1052,20 @@ uint32_t DW1000::readOTP32(uint16_t otp_addr)
     writeSubregister(DW_REG_OTP_IF  , DW_SUBREG_OTP_CTRL, 1, (uint8_t *)&cmd[2]);
 
     return read_data;
+}
+
+void DW1000::ISR()
+{
+    if (instance->IsTXComplete())
+    {
+        instance->txCallback();
+        instance->ClearPendingInterrupt(DW_TXFRS_MASK);
+
+        instance->m_state = DW_STATE_IDLE;
+    }
+    if (instance->IsRXComplete())
+    {
+	instance->ProcessRXBuffer();
+        instance->rxCallback();
+    }
 }

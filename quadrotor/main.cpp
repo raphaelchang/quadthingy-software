@@ -175,7 +175,7 @@ int main(void) {
         //m_md3->Set(0.5);
         //m_md4->Set(-0.5);
 #endif
-    chThdCreateStatic(dw_update_wa, sizeof(dw_update_wa), HIGHPRIO, dw_update, NULL);
+    //chThdCreateStatic(dw_update_wa, sizeof(dw_update_wa), HIGHPRIO, dw_update, NULL);
     ISL29501 *tof = new ISL29501();
     VL53L0X *sensor = new VL53L0X(false);
     MS5611 *baro = new MS5611();
@@ -214,7 +214,7 @@ int main(void) {
     double throttle = 0;
 
 
-    //controller->Enable();
+    controller->Enable();
     for(;;)
     {
         if (!palReadPad(GPIOC, 0))
@@ -277,12 +277,12 @@ int main(void) {
         chprintf((BaseSequentialStream*)&SDU1, "imu: %f %f %f %f %f %f %f %f %f\n", vector(0), vector(1), vector(2), vector_grav(0), vector_grav(1), vector_grav(2), vector_acc(0), vector_acc(1), vector_acc(2));
         chprintf((BaseSequentialStream*)&SDU1, "%d\n", ST2US(period));
 #endif
-        chprintf((BaseSequentialStream*)&SDU1, "dw: ");
-        for (uint8_t i = 0; i < rxlen; i++)
-        {
-            chprintf((BaseSequentialStream*)&SDU1, "%d ", rxbuf[i]);
-        }
-        chprintf((BaseSequentialStream*)&SDU1, "\n");
+        //chprintf((BaseSequentialStream*)&SDU1, "dw: ");
+        //for (uint8_t i = 0; i < rxlen; i++)
+        //{
+            //chprintf((BaseSequentialStream*)&SDU1, "%d ", rxbuf[i]);
+        //}
+        //chprintf((BaseSequentialStream*)&SDU1, "\n");
         chThdSleepMilliseconds(10);
     }
 }

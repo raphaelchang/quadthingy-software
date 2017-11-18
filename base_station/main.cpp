@@ -8,15 +8,53 @@
 #include <string.h>
 #include "hw_conf.h"
 
+//#define TX
+static DW1000 *dw1000;
+
+#ifndef TX
+void rxcb(void)
+{
+        uint32_t rxlen;
+        uint8_t* rxbuf = dw1000->GetRXBuffer(&rxlen);
+
+        chprintf((BaseSequentialStream*)&SDU1, "dw: ");
+        for (uint8_t i = 0; i < rxlen; i++)
+        {
+            chprintf((BaseSequentialStream*)&SDU1, "%d ", rxbuf[i]);
+        }
+        chprintf((BaseSequentialStream*)&SDU1, "\n");
+
+        dw1000->Receive( DW_TRANCEIVE_ASYNC );
+}
+
+void txcb(void)
+{
+}
+#endif
+
 int main(void) {
     halInit();
     chSysInit();
 
-    DW1000 *dw1000 = new DW1000();
+    dw1000 = new DW1000();
+
+#ifndef TX
+    dw1000->SetCallbacks(&txcb, &rxcb);
+    // Configure reception
+    dw1000_rx_conf_t rx_conf;
+    rx_conf.is_delayed = 0;
+    rx_conf.timeout = 0;//0xFFFF; // ~65 ms
+
+    // Receive
+    dw1000->ConfigureRX( &rx_conf );
+    dw1000->Receive( DW_TRANCEIVE_ASYNC );
+#else
     comm_usb_serial_init();
+#endif
 
     for (;;)
     {
+#ifdef TX
         // Configure transmission
         dw1000_tx_conf_t tx_conf;
         tx_conf.data_len = 10;
@@ -28,24 +66,7 @@ int main(void) {
         uint8_t  p_data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         p_data[0] = counter++;
         dw1000->Transmit( p_data, tx_conf.data_len, DW_TRANCEIVE_SYNC );
-
-        // Configure reception
-        dw1000_rx_conf_t rx_conf;
-        rx_conf.is_delayed = 0;
-        rx_conf.timeout = 0;//0xFFFF; // ~65 ms
-
-        // Receive
-        dw1000->ConfigureRX( &rx_conf );
-        dw1000->Receive( DW_TRANCEIVE_SYNC );
-        uint32_t rxlen;
-        uint8_t* rxbuf = dw1000->GetRXBuffer(&rxlen);
-
-        chprintf((BaseSequentialStream*)&SDU1, "dw: ");
-        for (uint8_t i = 0; i < rxlen; i++)
-        {
-            chprintf((BaseSequentialStream*)&SDU1, "%d ", rxbuf[i]);
-        }
-        chprintf((BaseSequentialStream*)&SDU1, "\n");
-        chThdSleepMilliseconds(5);
+#endif
+        chThdSleepMilliseconds(10);
     }
 }
