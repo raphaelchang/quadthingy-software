@@ -74,7 +74,7 @@ void rxcb(uint64_t status)
             float treply1_us = treply1 * TIMEUNITS_TO_US;
             float treply2_us = treply2 * TIMEUNITS_TO_US;
             float tprop = (tround1_us * tround2_us - treply1_us * treply2_us) / (tround1_us + tround2_us + treply1_us + treply2_us);
-            float dist = tprop * 300 / 4.0;
+            float dist = tprop * 300 - 154;
 
             chprintf((BaseSequentialStream*)&SDU1, "tprop: %f %f %f %f %f %f\n", tround1_us, tround2_us, treply1_us, treply2_us, tprop, dist);
             break;
